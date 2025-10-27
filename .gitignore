@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 环境变量和密钥
+.env
+*.key
+
+# 数据文件（可选，如果不想提交数据）
+data/*.csv
+!data/.gitkeep
+
+# 日志文件
+logs/*.log
+!logs/.gitkeep
+
+# 临时文件
+*.tmp
+temp/
+tmp/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+.env
+
+__pycache__
