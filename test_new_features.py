@@ -37,10 +37,11 @@ def test_gas_monitor():
         print("\n📊 获取ETH Gas...")
         eth_gas = monitor.get_eth_gas()
         if eth_gas:
-            print(f"  ✅ ETH Gas: {eth_gas['propose_gas']} Gwei")
-            print(f"     安全: {eth_gas['safe_gas']} | 快速: {eth_gas['fast_gas']}")
+            print(f"  ✅ ETH Gas (最新): {eth_gas['latest_gas']} Gwei")
+            print(f"     7日均值: {eth_gas['current_avg_gas']} Gwei")
+            print(f"     7日范围: {eth_gas['min_gas_7d']} - {eth_gas['max_gas_7d']} Gwei")
         else:
-            print("  ❌ 无法获取ETH Gas")
+            print("  ❌ 无法获取ETH Gas (可能需要API密钥)")
         
         # 测试BTC Fee
         print("\n📊 获取BTC费用...")

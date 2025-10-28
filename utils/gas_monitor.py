@@ -23,36 +23,214 @@ class GasFeeMonitor:
         self.etherscan_key = etherscan_key
         self.gas_history = []
     
-    def get_eth_gas(self):
-        """获取ETH网络Gas价格"""
+    def get_eth_gas_estimate(self, gas_price_wei=2000000000):
+        """
+        获取ETH Gas估算
+        
+        Args:
+            gas_price_wei: Gas价格（wei），默认2 Gwei
+        
+        Returns:
+            Gas估算信息
+        """
         try:
-            url = "https://api.etherscan.io/api"
+            url = "https://api.etherscan.io/v2/api"
             params = {
+                "chainid": "1",
                 "module": "gastracker",
-                "action": "gasoracle",
+                "action": "gasestimate",
+                "gasprice": str(gas_price_wei),
                 "apikey": self.etherscan_key
             }
             
             response = requests.get(url, params=params, timeout=10)
             data = response.json()
             
-            if data["status"] == "1":
+            if data.get("status") == "1" and data.get("result"):
                 result = data["result"]
+                logger.info(f"ETH Gas估算成功: {result}")
+                return {
+                    "asset": "ETH",
+                    "network": "Ethereum",
+                    "timestamp": datetime.now(),
+                    "estimate": result,
+                    "gas_price_gwei": gas_price_wei / 1e9,
+                    "unit": "Gwei"
+                }
+            else:
+                logger.warning(f"Etherscan API错误: {data.get('message', 'Unknown')}")
+                return None
+            
+        except Exception as e:
+            logger.error(f"获取ETH Gas估算失败: {e}")
+            return None
+    
+    def get_eth_avg_gas_price(self, days=7):
+        """
+        获取ETH平均Gas价格
+        
+        Args:
+            days: 获取最近几天的数据，默认7天
+        
+        Returns:
+            平均Gas价格信息
+        """
+        try:
+            from datetime import timedelta
+            
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            url = "https://api.etherscan.io/v2/api"
+            params = {
+                "chainid": "1",
+                "module": "stats",
+                "action": "dailyavggasprice",
+                "startdate": start_date.strftime("%Y-%m-%d"),
+                "enddate": end_date.strftime("%Y-%m-%d"),
+                "sort": "desc",
+                "apikey": self.etherscan_key
+            }
+            
+            # 增加超时时间并添加重试
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(url, params=params, timeout=30)
+                    data = response.json()
+                    break
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Etherscan API超时，重试 {attempt + 1}/{max_retries}")
+                        continue
+                    else:
+                        logger.error("Etherscan API超时，已达最大重试次数")
+                        return None
+            
+            if data.get("status") == "1" and data.get("result"):
+                results = data["result"]
+                
+                # 计算平均值
+                if results:
+                    avg_prices = []
+                    for item in results:
+                        # Gas价格单位是Wei，转换为Gwei
+                        gas_price_gwei = float(item.get("avgGasPrice_Wei", 0)) / 1e9
+                        avg_prices.append(gas_price_gwei)
+                    
+                    overall_avg = sum(avg_prices) / len(avg_prices) if avg_prices else 0
+                    
+                    gas_info = {
+                        "asset": "ETH",
+                        "network": "Ethereum",
+                        "timestamp": datetime.now(),
+                        "period_days": days,
+                        "avg_gas_price_gwei": round(overall_avg, 2),
+                        "latest_gas_price_gwei": round(avg_prices[0], 2) if avg_prices else 0,
+                        "min_gas_price_gwei": round(min(avg_prices), 2) if avg_prices else 0,
+                        "max_gas_price_gwei": round(max(avg_prices), 2) if avg_prices else 0,
+                        "data_points": len(results),
+                        "unit": "Gwei"
+                    }
+                    
+                    logger.info(f"ETH平均Gas（{days}天）: {gas_info['avg_gas_price_gwei']} Gwei")
+                    return gas_info
+            else:
+                logger.warning(f"获取平均Gas价格失败: {data.get('message', 'Unknown')}")
+                return None
+            
+        except Exception as e:
+            logger.error(f"获取ETH平均Gas价格失败: {e}")
+            return None
+    
+    def get_eth_gas_from_ethgasstation(self):
+        """
+        从Etherscan V2 API获取Gas价格（备用方案）
+        """
+        try:
+            url = "https://api.etherscan.io/v2/api"
+            params = {
+                "chainid": "1",
+                "module": "gastracker",
+                "action": "gasoracle",
+                "apikey": self.etherscan_key
+            }
+            
+            response = requests.get(url, params=params, timeout=30)
+            data = response.json()
+            
+            if data.get("status") == "1" and data.get("result"):
+                result = data["result"]
+                # V2 API返回的是浮点数Gwei
                 gas_info = {
                     "asset": "ETH",
                     "network": "Ethereum",
                     "timestamp": datetime.now(),
-                    "safe_gas": int(result["SafeGasPrice"]),
-                    "propose_gas": int(result["ProposeGasPrice"]),
-                    "fast_gas": int(result["FastGasPrice"]),
+                    "safe_gas": float(result.get("SafeGasPrice", 0)),
+                    "propose_gas": float(result.get("ProposeGasPrice", 0)),
+                    "fast_gas": float(result.get("FastGasPrice", 0)),
                     "base_fee": float(result.get("suggestBaseFee", 0)),
-                    "unit": "Gwei"
+                    "unit": "Gwei",
+                    "source": "etherscan_gastracker"
                 }
-                logger.info(f"ETH Gas: {gas_info['propose_gas']} Gwei")
+                logger.info(f"ETH Gas (Oracle): 安全={gas_info['safe_gas']:.4f}, 建议={gas_info['propose_gas']:.4f}, 快速={gas_info['fast_gas']:.4f} Gwei")
                 return gas_info
-            else:
-                logger.warning(f"Etherscan API错误: {data.get('message', 'Unknown')}")
-                return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"从Etherscan GasTracker获取失败: {e}")
+            return None
+    
+    def get_eth_gas(self):
+        """
+        获取ETH当前Gas信息（综合）
+        
+        Returns:
+            综合Gas信息
+        """
+        try:
+            # 方法1: 尝试获取平均Gas价格（最近7天）
+            avg_gas = self.get_eth_avg_gas_price(days=7)
+            
+            if avg_gas:
+                gas_info = {
+                    "asset": "ETH",
+                    "network": "Ethereum",
+                    "timestamp": datetime.now(),
+                    "current_avg_gas": avg_gas["avg_gas_price_gwei"],
+                    "latest_gas": avg_gas["latest_gas_price_gwei"],
+                    "min_gas_7d": avg_gas["min_gas_price_gwei"],
+                    "max_gas_7d": avg_gas["max_gas_price_gwei"],
+                    "unit": "Gwei",
+                    "source": "etherscan_stats"
+                }
+                
+                logger.info(f"ETH Gas: 当前={gas_info['latest_gas']} Gwei, 7日均值={gas_info['current_avg_gas']} Gwei")
+                return gas_info
+            
+            # 方法2: 如果失败，使用GasOracle API（更简单的API）
+            logger.info("尝试使用备用Gas API...")
+            gas_oracle = self.get_eth_gas_from_ethgasstation()
+            
+            if gas_oracle:
+                # 转换为统一格式
+                gas_info = {
+                    "asset": "ETH",
+                    "network": "Ethereum",
+                    "timestamp": datetime.now(),
+                    "current_avg_gas": gas_oracle["propose_gas"],
+                    "latest_gas": gas_oracle["propose_gas"],
+                    "min_gas_7d": gas_oracle["safe_gas"],
+                    "max_gas_7d": gas_oracle["fast_gas"],
+                    "unit": "Gwei",
+                    "source": "etherscan_gastracker"
+                }
+                
+                logger.info(f"ETH Gas (备用): 建议={gas_info['latest_gas']} Gwei")
+                return gas_info
+            
+            return None
             
         except Exception as e:
             logger.error(f"获取ETH Gas失败: {e}")
@@ -111,7 +289,8 @@ class GasFeeMonitor:
             logger.warning("无法获取ETH Gas信息")
             return False
         
-        current_gas = gas_info["propose_gas"]
+        # 使用最新的Gas价格
+        current_gas = gas_info["latest_gas"]
         
         if current_gas <= max_gas_gwei:
             logger.info(f"✅ ETH Gas合理: {current_gas} <= {max_gas_gwei} Gwei")
