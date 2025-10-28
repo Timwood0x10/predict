@@ -171,3 +171,43 @@ if __name__ == "__main__":
         print("✓ 配置完整")
     else:
         print("✗ 配置不完整")
+
+# ==================== 新增功能API密钥 ====================
+# Gas费用监控
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "")
+
+# 新闻聚合
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
+
+# 多数据源K线
+CRYPTOCOMPARE_API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY", "")
+
+# 市场情绪分析
+CRYPTORACLE_API_KEY = os.getenv("CRYPTORACLE_API_KEY", "")
+
+# ==================== Gas费用配置 ====================
+GAS_CONFIG = {
+    "max_eth_gas": 50,      # ETH最大Gas (Gwei)
+    "max_btc_fee": 20,      # BTC最大费用 (sat/vB)
+    "check_before_trade": True
+}
+
+# ==================== 新闻配置 ====================
+NEWS_CONFIG = {
+    "fetch_interval": 3600,     # 获取间隔（秒）
+    "crypto_limit": 10,         # 加密货币新闻数量
+    "macro_limit": 5            # 宏观经济新闻数量
+}
+
+# ==================== 情绪分析配置 ====================
+SENTIMENT_CONFIG = {
+    "min_confidence": 50,       # 最低置信度
+    "update_interval": 1800     # 更新间隔（秒）
+}
+
+# ==================== 多数据源配置 ====================
+DATA_SOURCE_CONFIG = {
+    "primary_source": "binance",
+    "enable_multi_source": True,
+    "sources": ["binance", "coingecko", "cryptocompare"]
+}
