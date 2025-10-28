@@ -211,3 +211,6 @@ DATA_SOURCE_CONFIG = {
     "enable_multi_source": True,
     "sources": ["binance", "coingecko", "cryptocompare"]
 }
+
+# 新闻API密钥（支持两种命名）
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY") or os.getenv("NEWS_API_KEY", "")
