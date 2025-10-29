@@ -1,11 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-主程序 - 加密货币价格预测系统
+主程序 - 加密货币价格预测系统（基础版）
+
 功能: 
 1. 获取BTC和ETH的实时K线数据
 2. 使用Grok, Gemini, DeepSeek进行价格预测
 3. 保存和对比预测结果
+
+⭐ 新版本推荐: main_enhanced.py
+   - ✅ 集成决策引擎（26维特征分析）
+   - ✅ 科学仓位管理（止盈止损）
+   - ✅ 三种运行模式（单次/监控/API）
+   - ✅ AI可直接调用（REST API）
+   
+   使用方法:
+   python main_enhanced.py --help
+   
+   查看文档: MAIN_ENHANCED_GUIDE.md
 """
 
 import sys

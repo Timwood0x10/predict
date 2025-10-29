@@ -84,8 +84,12 @@ class DataIntegrator:
             # 当前价格
             current_price = float(kline_df.iloc[-1]['close'])
             
-            # 价格变化率（最近vs最早）
-            price_change_pct = (kline_df.iloc[-1]['close'] - kline_df.iloc[0]['close']) / kline_df.iloc[0]['close'] * 100
+            # 重要：使用最近24小时的价格变化（而不是全部100小时）
+            if len(kline_df) >= 24:
+                recent_24h = kline_df.tail(24)
+                price_change_pct = (recent_24h.iloc[-1]['close'] - recent_24h.iloc[0]['close']) / recent_24h.iloc[0]['close'] * 100
+            else:
+                price_change_pct = (kline_df.iloc[-1]['close'] - kline_df.iloc[0]['close']) / kline_df.iloc[0]['close'] * 100
             
             # 成交量（最近10条平均）
             avg_volume = float(kline_df['volume'].tail(10).mean())
@@ -93,12 +97,18 @@ class DataIntegrator:
             # 波动率（价格标准差/均值）
             volatility = float(kline_df['close'].std() / kline_df['close'].mean())
             
-            # 趋势 (1=上涨, 0=平稳, -1=下跌)
+            # 趋势 (1=上涨, 0=平稳, -1=下跌) - 基于最近24小时
             trend = 1 if price_change_pct > 1 else (-1 if price_change_pct < -1 else 0)
             
-            # 最高最低价
-            high_price = float(kline_df['high'].max())
-            low_price = float(kline_df['low'].min())
+            # 最高最低价（最近24小时）
+            if len(kline_df) >= 24:
+                recent_data = kline_df.tail(24)
+                high_price = float(recent_data['high'].max())
+                low_price = float(recent_data['low'].min())
+            else:
+                high_price = float(kline_df['high'].max())
+                low_price = float(kline_df['low'].min())
+            
             price_range_pct = (high_price - low_price) / low_price * 100
             
             features.extend([
