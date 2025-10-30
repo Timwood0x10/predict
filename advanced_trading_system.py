@@ -382,7 +382,11 @@ class AdvancedTradingSystem:
         final_action = "HOLD"
         final_confidence = 0
         final_reason = ""
+        detailed_reason = ""  # 新增：详细原因
         position_info = None
+        
+        # 生成市场诊断报告
+        market_diagnosis = self._generate_market_diagnosis(engine_signals, ai_decision)
         
         if not safety_passed:
             final_action = "HOLD"
@@ -430,10 +434,130 @@ class AdvancedTradingSystem:
                 'reason': final_reason,
                 'position': position_info
             },
+            'market_diagnosis': market_diagnosis,  # 新增：市场诊断
             'ai_decision': ai_decision,
             'engine_decision': engine_decision,
             'current_price': current_price
         }
+    
+    def _generate_market_diagnosis(self, engine_signals, ai_decision):
+        """
+        生成详细的市场诊断报告
+        
+        分析当前市场状态，给出导致决策的具体原因
+        """
+        diagnosis = {
+            'overall_state': '',
+            'key_factors': [],
+            'concerns': [],
+            'opportunities': []
+        }
+        
+        if not engine_signals:
+            return diagnosis
+        
+        # 获取各维度评分
+        total_score = engine_signals.get('total_score', 50)
+        news_score = engine_signals.get('news_score', 50)
+        price_score = engine_signals.get('price_score', 50)
+        sentiment_score = engine_signals.get('sentiment_score', 50)
+        ai_score = engine_signals.get('ai_score', 50)
+        consistency = engine_signals.get('consistency', 0.5)
+        
+        # 判断整体市场状态
+        if total_score >= 70:
+            diagnosis['overall_state'] = "🟢 市场整体强势看涨"
+        elif total_score >= 55:
+            diagnosis['overall_state'] = "🟡 市场略微偏多，但信号不够强"
+        elif total_score >= 45:
+            diagnosis['overall_state'] = "⚪ 市场中性震荡，方向不明"
+        elif total_score >= 30:
+            diagnosis['overall_state'] = "🟠 市场略微偏空，但信号不够强"
+        else:
+            diagnosis['overall_state'] = "🔴 市场整体弱势看跌"
+        
+        # 分析关键因素
+        scores = [
+            ('新闻面', news_score, 30),
+            ('价格面', price_score, 25),
+            ('情绪面', sentiment_score, 25),
+            ('AI信号', ai_score, 20)
+        ]
+        
+        # 找出最强和最弱的信号
+        sorted_scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        strongest = sorted_scores[0]
+        weakest = sorted_scores[-1]
+        
+        # 关键驱动因素
+        if strongest[1] >= 70:
+            diagnosis['key_factors'].append(f"✅ {strongest[0]}强劲 ({strongest[1]:.0f}分)，成为主要驱动力")
+        elif strongest[1] >= 55:
+            diagnosis['key_factors'].append(f"🟢 {strongest[0]}偏多 ({strongest[1]:.0f}分)")
+        
+        if weakest[1] <= 30:
+            diagnosis['key_factors'].append(f"❌ {weakest[0]}疲软 ({weakest[1]:.0f}分)，拖累整体表现")
+        elif weakest[1] <= 45:
+            diagnosis['key_factors'].append(f"🔴 {weakest[0]}偏空 ({weakest[1]:.0f}分)")
+        
+        # 具体分析各维度
+        # 1. 新闻分析
+        if news_score >= 70:
+            diagnosis['opportunities'].append("📰 新闻面利好，市场情绪积极")
+        elif news_score <= 30:
+            diagnosis['concerns'].append("📰 新闻面利空，市场情绪悲观")
+        elif news_score >= 45 and news_score <= 55:
+            diagnosis['key_factors'].append("📰 新闻面平淡，缺乏催化剂")
+        
+        # 2. 价格分析
+        if price_score >= 70:
+            diagnosis['opportunities'].append("📈 价格走势强劲，技术面支持上涨")
+        elif price_score <= 30:
+            diagnosis['concerns'].append("📉 价格走势疲软，技术面支持下跌")
+        elif price_score >= 45 and price_score <= 55:
+            diagnosis['key_factors'].append("📊 价格横盘整理，等待方向选择")
+        
+        # 3. 情绪分析
+        if sentiment_score >= 70:
+            diagnosis['opportunities'].append("😊 市场情绪高涨，投资者信心充足")
+        elif sentiment_score <= 30:
+            diagnosis['concerns'].append("😰 市场情绪低迷，投资者恐慌")
+        elif sentiment_score >= 45 and sentiment_score <= 55:
+            diagnosis['key_factors'].append("😐 市场情绪中性，观望氛围浓厚")
+        
+        # 4. AI信号分析
+        ai_action = ai_decision['decision']['action']
+        ai_conf = ai_decision['decision']['confidence']
+        
+        if ai_conf >= 80:
+            if ai_action == "LONG":
+                diagnosis['opportunities'].append(f"🤖 AI强烈看涨 ({ai_conf:.0f}%置信度)")
+            elif ai_action == "SHORT":
+                diagnosis['concerns'].append(f"🤖 AI强烈看跌 ({ai_conf:.0f}%置信度)")
+        elif ai_conf >= 60:
+            if ai_action == "LONG":
+                diagnosis['key_factors'].append(f"🤖 AI偏向看涨 ({ai_conf:.0f}%置信度)")
+            elif ai_action == "SHORT":
+                diagnosis['key_factors'].append(f"🤖 AI偏向看跌 ({ai_conf:.0f}%置信度)")
+        
+        # 5. 信号一致性分析
+        if consistency >= 0.8:
+            diagnosis['key_factors'].append(f"✅ 各维度信号高度一致 ({consistency*100:.0f}%)")
+        elif consistency <= 0.5:
+            diagnosis['concerns'].append(f"⚠️ 各维度信号分歧较大 ({consistency*100:.0f}%)，需谨慎")
+        
+        # 6. 市场环境分析
+        if 'market_environment' in ai_decision:
+            env = ai_decision['market_environment']
+            env_type = env.get('type', 'unknown')
+            env_desc = env.get('description', '')
+            
+            if env_type == 'strong_trend':
+                diagnosis['key_factors'].append(f"📊 市场环境: {env_desc}")
+            elif env_type == 'ranging':
+                diagnosis['key_factors'].append(f"📊 市场环境: {env_desc}，不适合趋势交易")
+        
+        return diagnosis
     
     def _calculate_leverage_position(self, current_price, direction, stop_loss_pct):
         """计算杠杆仓位（完整信息）"""
@@ -471,14 +595,41 @@ class AdvancedTradingSystem:
         final = result['final_decision']
         ai = result['ai_decision']
         engine = result['engine_decision']
+        diagnosis = result.get('market_diagnosis', {})
+        
+        # 市场诊断（新增）
+        if diagnosis:
+            print("\n【市场诊断】")
+            if diagnosis.get('overall_state'):
+                print(f"  {diagnosis['overall_state']}")
+            
+            if diagnosis.get('key_factors'):
+                print("\n  关键因素：")
+                for factor in diagnosis['key_factors']:
+                    print(f"    • {factor}")
+            
+            if diagnosis.get('opportunities'):
+                print("\n  机会：")
+                for opp in diagnosis['opportunities']:
+                    print(f"    ✅ {opp}")
+            
+            if diagnosis.get('concerns'):
+                print("\n  风险：")
+                for concern in diagnosis['concerns']:
+                    print(f"    ⚠️ {concern}")
         
         # 市场状态
-        print("\n【市场状态】")
+        print("\n【市场数据】")
         print(f"  当前价格: ${result['current_price']:,.2f}")
         if engine.get('signals'):
             signals = engine['signals']
             print(f"  综合评分: {signals['total_score']:.0f}/100")
             print(f"  信号一致性: {signals['consistency']*100:.0f}%")
+            print(f"  各维度评分:")
+            print(f"    📰 新闻: {signals.get('news_score', 0):.0f}/100")
+            print(f"    📈 价格: {signals.get('price_score', 0):.0f}/100")
+            print(f"    😊 情绪: {signals.get('sentiment_score', 0):.0f}/100")
+            print(f"    🤖 AI: {signals.get('ai_score', 0):.0f}/100")
         
         # AI建议
         print("\n【AI决策层】")
