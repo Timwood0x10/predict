@@ -67,12 +67,13 @@ class DataIntegrator:
         
         return features, names
     
-    def integrate_kline_data(self, kline_df):
+    def integrate_kline_data(self, kline_df, hours=12):
         """
         整合K线数据
         
         Args:
             kline_df: K线DataFrame
+            hours: 分析的小时数（默认12小时）
         
         Returns:
             特征向量 [current_price, price_change_pct, volume, volatility, trend]
@@ -84,25 +85,27 @@ class DataIntegrator:
             # 当前价格
             current_price = float(kline_df.iloc[-1]['close'])
             
-            # 重要：使用最近24小时的价格变化（而不是全部100小时）
-            if len(kline_df) >= 24:
-                recent_24h = kline_df.tail(24)
-                price_change_pct = (recent_24h.iloc[-1]['close'] - recent_24h.iloc[0]['close']) / recent_24h.iloc[0]['close'] * 100
+            # 使用指定小时数的价格变化
+            if len(kline_df) >= hours:
+                recent_data = kline_df.tail(hours)
+                price_change_pct = (recent_data.iloc[-1]['close'] - recent_data.iloc[0]['close']) / recent_data.iloc[0]['close'] * 100
             else:
                 price_change_pct = (kline_df.iloc[-1]['close'] - kline_df.iloc[0]['close']) / kline_df.iloc[0]['close'] * 100
             
             # 成交量（最近10条平均）
             avg_volume = float(kline_df['volume'].tail(10).mean())
             
-            # 波动率（价格标准差/均值）
-            volatility = float(kline_df['close'].std() / kline_df['close'].mean())
+            # 波动率（基于指定小时数）
+            if len(kline_df) >= hours:
+                volatility = float(recent_data['close'].std() / recent_data['close'].mean())
+            else:
+                volatility = float(kline_df['close'].std() / kline_df['close'].mean())
             
-            # 趋势 (1=上涨, 0=平稳, -1=下跌) - 基于最近24小时
+            # 趋势 (1=上涨, 0=平稳, -1=下跌) - 基于指定小时数
             trend = 1 if price_change_pct > 1 else (-1 if price_change_pct < -1 else 0)
             
-            # 最高最低价（最近24小时）
-            if len(kline_df) >= 24:
-                recent_data = kline_df.tail(24)
+            # 最高最低价（指定小时数）
+            if len(kline_df) >= hours:
                 high_price = float(recent_data['high'].max())
                 low_price = float(recent_data['low'].min())
             else:
@@ -269,9 +272,12 @@ class DataIntegrator:
         return features, names
     
     def integrate_all(self, gas_data=None, kline_df=None, news_sentiment=None, 
-                     market_sentiment=None, ai_predictions=None):
+                     market_sentiment=None, ai_predictions=None, hours=12):
         """
         整合所有数据
+        
+        Args:
+            hours: 分析的小时数（默认12小时）
         
         Returns:
             dict: {
@@ -288,8 +294,8 @@ class DataIntegrator:
         all_features.extend(gas_features)
         all_names.extend(gas_names)
         
-        # 2. K线数据
-        kline_features, kline_names = self.integrate_kline_data(kline_df)
+        # 2. K线数据（使用指定的小时数）
+        kline_features, kline_names = self.integrate_kline_data(kline_df, hours=hours)
         all_features.extend(kline_features)
         all_names.extend(kline_names)
         

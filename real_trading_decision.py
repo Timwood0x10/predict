@@ -10,6 +10,10 @@ import os
 import logging
 from datetime import datetime
 import pandas as pd
+from dotenv import load_dotenv
+
+# 加载.env文件
+load_dotenv()
 
 # 导入所有组件
 from utils.gas_monitor import GasFeeMonitor
@@ -43,8 +47,8 @@ class RealTradingDecisionSystem:
         logger.info("🚀 初始化真实交易决策系统")
         logger.info("=" * 80)
         
-        # 获取API密钥
-        newsapi_key = os.getenv('NEWSAPI_KEY', '')
+        # 获取API密钥（兼容两种格式）
+        newsapi_key = os.getenv('NEWSAPI_KEY') or os.getenv('NEWS_API_KEY') or ''
         
         # 初始化数据获取组件
         self.gas_monitor = GasFeeMonitor()
@@ -67,18 +71,19 @@ class RealTradingDecisionSystem:
         logger.info(f"   账户余额: ${account_balance:,.2f}")
         logger.info(f"   单笔风险: {risk_percent*100:.2f}%")
     
-    def fetch_market_data(self, symbol="BTCUSDT"):
+    def fetch_market_data(self, symbol="BTCUSDT", hours=12):
         """
         获取市场数据
         
         Args:
             symbol: 交易对
+            hours: 分析的小时数（默认12小时）
             
         Returns:
             dict: 市场数据
         """
         logger.info("\n" + "=" * 80)
-        logger.info(f"📊 获取 {symbol} 市场数据")
+        logger.info(f"📊 获取 {symbol} 市场数据（最近{hours}小时）")
         logger.info("=" * 80)
         
         all_data = {}
@@ -103,16 +108,27 @@ class RealTradingDecisionSystem:
             logger.error(f"   ✗ 获取失败: {e}")
             all_data['gas_data'] = None
         
-        # 2. K线数据
-        logger.info("\n[2/5] 获取K线数据...")
+        # 2. K线数据（获取更多数据点，但只分析最近hours小时）
+        logger.info(f"\n[2/5] 获取K线数据（分析最近{hours}小时）...")
         try:
+            # 获取足够的数据点用于技术分析
             kline_df = self.data_fetcher.fetch_klines(symbol=symbol, interval="1h", limit=100)
             all_data['kline_df'] = kline_df
+            all_data['analysis_hours'] = hours
+            
             if kline_df is not None and not kline_df.empty:
                 current_price = kline_df.iloc[-1]['close']
-                price_change = ((current_price - kline_df.iloc[0]['close']) / kline_df.iloc[0]['close']) * 100
+                
+                # 计算指定小时数的价格变化
+                if len(kline_df) >= hours:
+                    start_price = kline_df.iloc[-hours]['close']
+                else:
+                    start_price = kline_df.iloc[0]['close']
+                
+                price_change = ((current_price - start_price) / start_price) * 100
                 logger.info(f"   ✓ 当前价格: ${current_price:,.2f}")
-                logger.info(f"   ✓ 价格变化: {price_change:+.2f}%")
+                logger.info(f"   ✓ {hours}h价格变化: {price_change:+.2f}%")
+                logger.info(f"   ✓ {hours}h前价格: ${start_price:,.2f}")
         except Exception as e:
             logger.error(f"   ✗ 获取失败: {e}")
             all_data['kline_df'] = None
@@ -240,12 +256,15 @@ class RealTradingDecisionSystem:
             logger.info("🔄 整合26维特征向量")
             logger.info("=" * 80)
             
+            # 传递hours参数到数据整合器
+            hours = market_data.get('analysis_hours', 12)
             integrated_data = self.data_integrator.integrate_all(
                 gas_data=market_data.get('gas_data'),
                 kline_df=market_data.get('kline_df'),
                 news_sentiment=market_data.get('news_sentiment'),
                 market_sentiment=market_data.get('market_sentiment'),
-                ai_predictions=market_data.get('ai_predictions')
+                ai_predictions=market_data.get('ai_predictions'),
+                hours=hours
             )
             
             features = integrated_data['features']
@@ -374,25 +393,34 @@ class RealTradingDecisionSystem:
         }
     
     def _calculate_long_position(self, current_price, features):
-        """计算做多仓位"""
+        """计算做多仓位（保守策略）"""
         # 从决策引擎获取仓位信息
         pos = features.get('position')
         
         if pos and current_price > 0:
+            # 调整为更保守的止盈止损（注意：stop_loss_percent是百分数，如3.0表示3%）
+            stop_loss_pct = pos['stop_loss_percent'] / 100 * 0.8  # 从百分数转换回小数，并缩小20%（更紧的止损）
+            stop_loss = current_price * (1 - stop_loss_pct)
+            
+            # 更保守的止盈：2%, 3.5%, 5%（原来是4.5%, 7.5%, 12%）
+            take_profit_1 = current_price * 1.02   # 2%
+            take_profit_2 = current_price * 1.035  # 3.5%
+            take_profit_3 = current_price * 1.05   # 5%
+            
             return {
                 'direction': 'LONG',
                 'entry_price': current_price,
                 'position_size': pos['position_size'],
                 'position_value': pos['position_value'],
                 'position_percent': pos['position_percent'],
-                'stop_loss': pos['stop_loss'],
-                'stop_loss_percent': pos['stop_loss_percent'],
-                'take_profit_1': pos['take_profit_1'],
-                'take_profit_2': pos['take_profit_2'],
-                'take_profit_3': pos['take_profit_3'],
-                'max_loss': pos['max_loss'],
-                'expected_profit': pos['expected_profit'],
-                'risk_reward_ratio': pos['risk_reward_ratio']
+                'stop_loss': stop_loss,
+                'stop_loss_percent': stop_loss_pct,
+                'take_profit_1': take_profit_1,
+                'take_profit_2': take_profit_2,
+                'take_profit_3': take_profit_3,
+                'max_loss': current_price * pos['position_size'] * stop_loss_pct,
+                'expected_profit': pos['expected_profit'] * 0.6,  # 预期利润降低
+                'risk_reward_ratio': 2.0  # 保守的2:1
             }
         
         # 如果决策引擎没有计算，我们自己计算
@@ -413,7 +441,7 @@ class RealTradingDecisionSystem:
         }
     
     def _calculate_short_position(self, current_price, features):
-        """计算做空仓位"""
+        """计算做空仓位（保守策略）"""
         # 从决策引擎获取仓位信息（针对做空调整）
         from utils.decision_engine import DecisionEngine
         engine = DecisionEngine(account_balance=self.decision_engine.account_balance)
@@ -432,6 +460,15 @@ class RealTradingDecisionSystem:
             volatility=volatility
         )
         
+        # 更保守的止盈止损（注意：stop_loss_percent已经是小数，如0.03表示3%）
+        stop_loss_pct = position_info['stop_loss_percent'] / 100 * 0.8  # 从百分数转换回小数，并缩小20%
+        stop_loss = current_price * (1 + stop_loss_pct)  # 做空止损在上方
+        
+        # 保守的止盈目标：-2%, -3.5%, -5%
+        take_profit_1 = current_price * 0.98   # 下跌2%
+        take_profit_2 = current_price * 0.965  # 下跌3.5%
+        take_profit_3 = current_price * 0.95   # 下跌5%
+        
         # 做空仓位信息
         return {
             'direction': 'SHORT',
@@ -439,14 +476,14 @@ class RealTradingDecisionSystem:
             'position_size': position_info['position_size'],
             'position_value': position_info['position_value'],
             'position_percent': position_info['position_percent'],
-            'stop_loss': position_info['stop_loss'],  # 做空止损在上方
-            'stop_loss_percent': position_info['stop_loss_percent'],
-            'take_profit_1': position_info['take_profit_1'],  # 做空止盈在下方
-            'take_profit_2': position_info['take_profit_2'],
-            'take_profit_3': position_info['take_profit_3'],
-            'max_loss': position_info['max_loss'],
-            'expected_profit': position_info['expected_profit'],
-            'risk_reward_ratio': position_info['risk_reward_ratio']
+            'stop_loss': stop_loss,  # 做空止损在上方
+            'stop_loss_percent': stop_loss_pct,
+            'take_profit_1': take_profit_1,  # 做空止盈在下方
+            'take_profit_2': take_profit_2,
+            'take_profit_3': take_profit_3,
+            'max_loss': current_price * position_info['position_size'] * stop_loss_pct,
+            'expected_profit': position_info['expected_profit'] * 0.6,
+            'risk_reward_ratio': 2.0  # 保守的2:1
         }
     
     def _print_decision_report(self, result):
@@ -519,19 +556,88 @@ class RealTradingDecisionSystem:
 
 def main():
     """主函数"""
+    print("\n")
+    print("=" * 80)
+    print("🌐 多币种交易决策系统")
+    print("=" * 80)
+    print("分析币种: BTC, ETH")
+    print("分析周期: 12小时")
+    print("策略: 双向交易（做多/做空）")
+    print("=" * 80)
+    
     # 创建决策系统
     system = RealTradingDecisionSystem(
         account_balance=10000,
         risk_percent=0.015
     )
     
-    # 执行决策分析
-    result = system.analyze_and_decide(symbol="BTCUSDT")
+    # 分析结果汇总
+    results = {}
     
-    if result:
-        print("\n✅ 决策完成！")
+    # 1. 分析BTC
+    print("\n" + "🔷" * 40)
+    print("【1/2】分析 BTC (比特币)")
+    print("🔷" * 40)
+    btc_result = system.analyze_and_decide(symbol="BTCUSDT")
+    if btc_result:
+        results['BTC'] = btc_result
+    
+    # 2. 分析ETH
+    print("\n" + "🔷" * 40)
+    print("【2/2】分析 ETH (以太坊)")
+    print("🔷" * 40)
+    eth_result = system.analyze_and_decide(symbol="ETHUSDT")
+    if eth_result:
+        results['ETH'] = eth_result
+    
+    # 3. 综合对比
+    print("\n")
+    print("=" * 80)
+    print("📊 综合对比分析")
+    print("=" * 80)
+    
+    if 'BTC' in results and 'ETH' in results:
+        btc_final = results['BTC']['final_decision']
+        eth_final = results['ETH']['final_decision']
+        
+        print("\n【BTC vs ETH 对比】")
+        print(f"\nBTC:")
+        print(f"  操作: {btc_final['action']:6s}  置信度: {btc_final['confidence']:.0f}%")
+        print(f"  价格: ${results['BTC']['current_price']:,.2f}")
+        
+        print(f"\nETH:")
+        print(f"  操作: {eth_final['action']:6s}  置信度: {eth_final['confidence']:.0f}%")
+        print(f"  价格: ${results['ETH']['current_price']:,.2f}")
+        
+        # 推荐决策
+        print("\n【交易建议】")
+        
+        # 优先级：操作有效性 > 置信度
+        btc_priority = 0
+        eth_priority = 0
+        
+        if btc_final['action'] in ['LONG', 'SHORT']:
+            btc_priority = btc_final['confidence']
+        if eth_final['action'] in ['LONG', 'SHORT']:
+            eth_priority = eth_final['confidence']
+        
+        if btc_priority > 0 or eth_priority > 0:
+            if btc_priority > eth_priority:
+                print(f"✅ 建议优先: BTC {btc_final['action']}")
+                print(f"   理由: 置信度更高 ({btc_priority:.0f}% vs {eth_priority:.0f}%)")
+            elif eth_priority > btc_priority:
+                print(f"✅ 建议优先: ETH {eth_final['action']}")
+                print(f"   理由: 置信度更高 ({eth_priority:.0f}% vs {btc_priority:.0f}%)")
+            else:
+                print(f"⚖️ BTC和ETH机会相当，可同时布局")
+        else:
+            print("⚠️ 两个币种都建议观望，等待更好的入场时机")
+        
+        print("\n" + "=" * 80)
+        print("✅ 所有分析完成！")
+        print("=" * 80)
     else:
-        print("\n❌ 决策失败！")
+        print("\n❌ 部分分析失败")
 
 
 if __name__ == "__main__":
