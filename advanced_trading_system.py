@@ -23,6 +23,7 @@ from utils.multi_source_fetcher import MultiSourceDataFetcher
 from utils.financial_news import FinancialNewsAggregator
 from utils.news_processor import NewsProcessor
 from utils.sentiment_analyzer import MarketSentimentAnalyzer
+from utils.polymarket_fetcher import PolymarketFetcher  # 新增
 from utils.data_integrator import DataIntegrator
 from utils.decision_engine import DecisionEngine
 from ai_decision_layer import AIDecisionLayer
@@ -78,6 +79,7 @@ class AdvancedTradingSystem:
         self.news_api = FinancialNewsAggregator(newsapi_key=newsapi_key)
         self.news_processor = NewsProcessor()
         self.sentiment_analyzer = MarketSentimentAnalyzer()
+        self.polymarket = PolymarketFetcher()  # 新增
         self.data_integrator = DataIntegrator()
         
         # 决策组件
@@ -218,7 +220,7 @@ class AdvancedTradingSystem:
             all_data['news_sentiment'] = None
         
         # 4. 市场情绪
-        logger.info("\n[4/5] 分析市场情绪...")
+        logger.info("\n[4/6] 分析市场情绪...")
         try:
             market_sentiment = self.sentiment_analyzer.get_comprehensive_sentiment(
                 symbol=symbol.replace('USDT', '')
@@ -229,11 +231,27 @@ class AdvancedTradingSystem:
             logger.error(f"   ✗ 失败: {e}")
             all_data['market_sentiment'] = None
         
-        # 5. AI预测
-        logger.info("\n[5/5] 生成AI预测...")
+        # 5. Polymarket预测（新增）
+        logger.info("\n[5/6] 获取Polymarket预测...")
+        try:
+            poly_symbol = symbol.replace('USDT', '')
+            polymarket_sentiment = self.polymarket.get_comprehensive_prediction(poly_symbol)
+            all_data['polymarket_sentiment'] = polymarket_sentiment
+            
+            if polymarket_sentiment:
+                logger.info(f"   ✓ Polymarket态度: {polymarket_sentiment.get('overall_sentiment')}")
+                logger.info(f"   ✓ 评分: {polymarket_sentiment.get('score', 50):.1f}/100")
+                logger.info(f"   ✓ 市场数: {polymarket_sentiment.get('market_count', 0)}")
+        except Exception as e:
+            logger.error(f"   ✗ 失败: {e}")
+            all_data['polymarket_sentiment'] = None
+        
+        # 6. AI预测
+        logger.info("\n[6/6] 生成AI预测...")
         ai_predictions = self._generate_ai_predictions(
             news_sentiment=all_data.get('news_sentiment'),
             market_sentiment=all_data.get('market_sentiment'),
+            polymarket_sentiment=all_data.get('polymarket_sentiment'),
             kline_df=all_data.get('kline_df')
         )
         all_data['ai_predictions'] = ai_predictions
@@ -241,14 +259,15 @@ class AdvancedTradingSystem:
         
         return all_data
     
-    def _generate_ai_predictions(self, news_sentiment, market_sentiment, kline_df):
-        """生成AI预测"""
+    def _generate_ai_predictions(self, news_sentiment, market_sentiment, polymarket_sentiment, kline_df):
+        """生成AI预测（考虑Polymarket数据）"""
         direction = 'up'
         confidence = 60
         
         bullish_signals = 0
         bearish_signals = 0
         
+        # 新闻信号
         if news_sentiment:
             sent = news_sentiment.get('sentiment', 'neutral')
             if sent == 'bullish':
@@ -256,6 +275,7 @@ class AdvancedTradingSystem:
             elif sent == 'bearish':
                 bearish_signals += 2
         
+        # 市场情绪信号
         if market_sentiment:
             sent = market_sentiment.get('overall_sentiment', 'neutral')
             if sent == 'bullish':
@@ -263,6 +283,20 @@ class AdvancedTradingSystem:
             elif sent == 'bearish':
                 bearish_signals += 2
         
+        # Polymarket信号（新增，权重更高）
+        if polymarket_sentiment:
+            poly_sent = polymarket_sentiment.get('overall_sentiment', 'neutral')
+            poly_score = polymarket_sentiment.get('score', 50)
+            
+            if poly_sent == 'bullish':
+                bullish_signals += 3  # Polymarket权重更高
+            elif poly_sent == 'bearish':
+                bearish_signals += 3
+            
+            # 根据Polymarket评分调整置信度
+            confidence += (poly_score - 50) / 10
+        
+        # 价格趋势信号
         if kline_df is not None and not kline_df.empty and len(kline_df) >= 12:
             recent = kline_df.tail(12)
             price_change = ((recent.iloc[-1]['close'] - recent.iloc[0]['close']) / recent.iloc[0]['close']) * 100
@@ -271,12 +305,15 @@ class AdvancedTradingSystem:
             elif price_change < -1.5:
                 bearish_signals += 1
         
+        # 综合判断
         if bullish_signals > bearish_signals:
             direction = 'up'
-            confidence = min(90, 60 + (bullish_signals - bearish_signals) * 10)
+            confidence = min(90, confidence + (bullish_signals - bearish_signals) * 8)
         elif bearish_signals > bullish_signals:
             direction = 'down'
-            confidence = min(90, 60 + (bearish_signals - bullish_signals) * 10)
+            confidence = min(90, confidence + (bearish_signals - bullish_signals) * 8)
+        
+        confidence = max(50, min(90, confidence))
         
         return pd.DataFrame({
             'timestamp': [datetime.now()],
@@ -540,7 +577,22 @@ class AdvancedTradingSystem:
             elif ai_action == "SHORT":
                 diagnosis['key_factors'].append(f"🤖 AI偏向看跌 ({ai_conf:.0f}%置信度)")
         
-        # 5. 信号一致性分析
+        # 5. Polymarket预测市场分析（新增）
+        if 'polymarket_sentiment' in ai_decision:
+            poly = ai_decision.get('polymarket_sentiment', {})
+            poly_sent = poly.get('overall_sentiment', 'neutral')
+            poly_score = poly.get('score', 50)
+            poly_count = poly.get('market_count', 0)
+            
+            if poly_count > 0:
+                if poly_sent == 'bullish' and poly_score >= 60:
+                    diagnosis['opportunities'].append(f"🎲 Polymarket看涨 ({poly_score:.0f}分，{poly_count}个市场)")
+                elif poly_sent == 'bearish' and poly_score <= 40:
+                    diagnosis['concerns'].append(f"🎲 Polymarket看跌 ({poly_score:.0f}分，{poly_count}个市场)")
+                else:
+                    diagnosis['key_factors'].append(f"🎲 Polymarket中性 ({poly_score:.0f}分，{poly_count}个市场)")
+        
+        # 6. 信号一致性分析
         if consistency >= 0.8:
             diagnosis['key_factors'].append(f"✅ 各维度信号高度一致 ({consistency*100:.0f}%)")
         elif consistency <= 0.5:
@@ -630,6 +682,15 @@ class AdvancedTradingSystem:
             print(f"    📈 价格: {signals.get('price_score', 0):.0f}/100")
             print(f"    😊 情绪: {signals.get('sentiment_score', 0):.0f}/100")
             print(f"    🤖 AI: {signals.get('ai_score', 0):.0f}/100")
+        
+        # Polymarket数据（新增）
+        if market_data and market_data.get('polymarket_sentiment'):
+            poly = market_data['polymarket_sentiment']
+            print(f"\n  🎲 Polymarket预测市场:")
+            print(f"    态度: {poly.get('overall_sentiment', 'N/A')}")
+            print(f"    评分: {poly.get('score', 0):.1f}/100")
+            print(f"    看涨市场: {poly.get('bullish_markets', 0)}个")
+            print(f"    看跌市场: {poly.get('bearish_markets', 0)}个")
         
         # AI建议
         print("\n【AI决策层】")

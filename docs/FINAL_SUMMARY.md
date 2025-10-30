@@ -400,6 +400,5 @@ python advanced_trading_system.py \
 
 **项目完成时间**: 2025-10-30  
 **文档版本**: v1.0  
-**开发者**: Rovo Dev AI Assistant  
 
 🎉 **祝交易顺利！**

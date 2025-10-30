@@ -2,7 +2,9 @@
 
 ## 📋 核心思路
 
-将26维特征数据转换为AI可理解的**决策树逻辑**，结合**多层验证机制**，确保交易决策的准确性和安全性。
+将30维特征数据转换为AI可理解的**决策树逻辑**，结合**多层验证机制**，确保交易决策的准确性和安全性。
+
+**最新更新**：新增Polymarket预测市场数据（4维特征），总特征从26维扩展到30维。
 
 ---
 
@@ -166,38 +168,72 @@ elif features[18] > 40:
 权重: 25%
 ```
 
-#### 5️⃣ AI预测维度（20分）
+#### 5️⃣ Polymarket预测市场维度（20分）⭐新增
+```python
+score_polymarket = 0
+
+# Polymarket评分
+polymarket_score = features[21]  # 0-100分
+if polymarket_score > 60:         # 看涨
+    score_polymarket += 10
+elif polymarket_score < 40:       # 看跌
+    score_polymarket -= 10
+else:                             # 中性
+    score_polymarket += 0
+
+# 市场数量（可信度）
+total_markets = features[22] + features[23]  # 看涨+看跌市场
+if total_markets >= 5:            # 足够的市场数量
+    score_polymarket += 5
+elif total_markets >= 3:
+    score_polymarket += 3
+
+# 净情绪强度
+net_sentiment = abs(features[24])  # 净情绪绝对值
+if net_sentiment > 0.3:           # 强烈的净情绪
+    score_polymarket += 5
+elif net_sentiment > 0.15:
+    score_polymarket += 3
+
+权重: 20%（与AI预测同等重要）
+
+说明: Polymarket是真实资金投注的预测市场，
+      反映了市场参与者的真实看法，权重较高
+```
+
+#### 6️⃣ AI综合预测维度（综合信号）
 ```python
 score_ai = 0
 
-# AI共识
-if features[25] == 1:     # AI看涨
+# AI共识（综合了以上所有信号）
+if features[29] == 1:     # AI看涨
     score_ai += 10
-elif features[25] == -1:  # AI看跌
+elif features[29] == -1:  # AI看跌
     score_ai -= 10
 
 # AI一致性
-if features[24] > 0.7:    # 70%以上一致
+if features[28] > 0.7:    # 70%以上一致
     score_ai += 6
-elif features[24] > 0.5:
+elif features[28] > 0.5:
     score_ai += 3
 
 # AI置信度
-if features[21] > 70:     # 高置信度
+if features[25] > 70:     # 高置信度
     score_ai += 4
 
-权重: 20%
+权重: 综合考虑
 ```
 
 ### 加权总分计算
 
 ```python
 total_score = (
-    score_cost * 0.10 +       # 成本 10%
-    score_trend * 0.25 +      # 趋势 25%
-    score_news * 0.20 +       # 新闻 20%
-    score_sentiment * 0.25 +  # 情绪 25%
-    score_ai * 0.20           # AI   20%
+    score_cost * 0.10 +           # 成本 10%
+    score_trend * 0.25 +          # 趋势 25%
+    score_news * 0.20 +           # 新闻 20%
+    score_sentiment * 0.15 +      # 情绪 15%
+    score_polymarket * 0.20 +     # Polymarket 20% ⭐新增
+    score_ai * 0.10               # AI综合 10%
 )
 
 # 归一化到0-100
@@ -317,8 +353,9 @@ AI预测: {features[22]}看涨 vs {features[23]}看跌
 成本维度: {score_cost}/10
 趋势维度: {score_trend}/25
 新闻维度: {score_news}/20
-情绪维度: {score_sentiment}/25
-AI维度: {score_ai}/20
+情绪维度: {score_sentiment}/15
+Polymarket维度: {score_polymarket}/20 ⭐新增
+AI综合维度: {score_ai}/10
 总分: {total_score}/100
 
 请作为专业交易顾问:

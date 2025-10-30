@@ -26,14 +26,21 @@
 
 系统从以下来源获取**真实数据**：
 
-| 数据类型 | 数据源 | 更新频率 |
-|---------|--------|---------|
-| 📈 **K线数据** | Binance API | 实时 |
-| 💰 **Gas费用** | Etherscan + Mempool.space | 实时 |
-| 📰 **新闻资讯** | NewsAPI + CryptoCompare + Odaily | 每小时 |
-| 😊 **市场情绪** | Fear & Greed Index | 每小时 |
+| 数据类型 | 数据源 | 更新频率 | 权重 |
+|---------|--------|---------|------|
+| 📈 **K线数据** | Binance API | 实时 | 25% |
+| 💰 **Gas费用** | Etherscan + Mempool.space | 实时 | - |
+| 📰 **新闻资讯** | NewsAPI + CryptoCompare + Odaily | 每小时 | 30% |
+| 😊 **市场情绪** | Fear & Greed Index | 每小时 | 25% |
+| 🎲 **预测市场** | Polymarket | 实时 | 20% |
 
-**注意**：AI预测部分目前使用基于市场情绪的算法，未集成真实的LLM API。
+**Polymarket预测市场**（新增）：
+- 真实资金投注的去中心化预测市场
+- 反映市场参与者的真实看法
+- 权重较高，因为是"用真金白银投票"
+- 自动聚合多个BTC/ETH相关市场
+
+**注意**：AI预测部分综合以上5个数据源，使用智能算法进行分析。
 
 ### 2. 决策策略
 
@@ -47,11 +54,12 @@ Layer 1: 安全检查 (5项前置条件)
     ├─ 波动率是否可控
     └─ 账户状态是否正常
     
-Layer 2: 多维度评分 (4个维度)
+Layer 2: 多维度评分 (5个维度)
     ├─ 📰 新闻信号 (30%权重)
     ├─ 📈 价格信号 (25%权重)
     ├─ 😊 情绪信号 (25%权重)
-    └─ 🤖 AI信号 (20%权重)
+    ├─ 🎲 Polymarket信号 (20%权重) ⭐新增
+    └─ 🤖 AI信号 (综合以上所有信号)
     
 Layer 3: 最终决策
     ├─ 做多(LONG): 评分≥63 + AI支持
@@ -235,7 +243,8 @@ SYMBOLS="BTCUSDT ETHUSDT"       # 要分析的币种
 - `utils/financial_news.py` - 新闻聚合
 - `utils/news_processor.py` - 新闻深度处理
 - `utils/sentiment_analyzer.py` - 市场情绪分析
-- `utils/data_integrator.py` - 数据整合（26维特征）
+- `utils/polymarket_fetcher.py` - Polymarket预测市场 ⭐新增
+- `utils/data_integrator.py` - 数据整合（30维特征）
 
 ### 决策层
 - `ai_decision_layer.py` - AI智能决策层
@@ -257,9 +266,9 @@ SYMBOLS="BTCUSDT ETHUSDT"       # 要分析的币种
 
 ## 📊 数据处理流程
 
-### 26维特征向量
+### 30维特征向量
 
-系统将市场数据整合为26维特征向量：
+系统将市场数据整合为30维特征向量：
 
 ```python
 [0-3]   Gas费用特征 (4维)
@@ -291,7 +300,13 @@ SYMBOLS="BTCUSDT ETHUSDT"       # 要分析的币种
   ├─ 恐惧贪婪指数
   └─ 市场情绪标签
 
-[21-25] AI预测特征 (5维)
+[21-24] Polymarket特征 (4维) ⭐新增
+  ├─ Polymarket评分
+  ├─ 看涨市场数量
+  ├─ 看跌市场数量
+  └─ 净情绪值
+
+[25-29] AI预测特征 (5维)
   ├─ AI平均置信度
   ├─ 看涨模型数量
   ├─ 看跌模型数量
@@ -432,6 +447,7 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 - [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) - 恐惧贪婪指数
 - [CryptoCompare](https://www.cryptocompare.com/) - 加密货币新闻
 - [Odaily](https://www.odaily.news/) - 中文加密货币新闻
+- [Polymarket](https://polymarket.com/) - 去中心化预测市场 ⭐新增
 
 ---
 
