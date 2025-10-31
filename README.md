@@ -1,458 +1,458 @@
-# 🤖 加密货币交易决策系统
+# 🤖 Cryptocurrency Trading Decision System
 
-> 一个基于真实市场数据的交易辅助决策系统，支持双向交易（做多/做空）和杠杆交易
+> A trading assistance decision system based on real market data, supporting dual-direction trading (long/short) and leveraged trading
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
 
-## 📋 项目简介
+## 📋 Project Introduction
 
-这是一个**交易辅助决策系统**，不是自动交易机器人。它通过收集和分析多维度市场数据，为交易者提供参考建议。
+This is a **trading assistance decision system**, not an automated trading bot. It provides reference suggestions for traders by collecting and analyzing multi-dimensional market data.
 
-### ⚠️ 重要声明
+### ⚠️ Important Disclaimer
 
-- ❌ **不保证盈利** - 这是辅助工具，不是圣杯
-- ❌ **不能预测未来** - 基于历史和当前数据分析
-- ❌ **需要人工判断** - 建议仅供参考，需结合自己的判断
-- ✅ **风险自负** - 加密货币交易有高风险，请谨慎使用
-
----
-
-## ✨ 核心功能
-
-### 1. 真实数据收集
-
-系统从以下来源获取**真实数据**：
-
-| 数据类型 | 数据源 | 更新频率 |
-|---------|--------|---------|
-| 📈 **K线数据** | Binance API | 实时 |
-| 💰 **Gas费用** | Etherscan + Mempool.space | 实时 |
-| 📰 **新闻资讯** | NewsAPI + CryptoCompare + Odaily | 每小时 |
-| 😊 **市场情绪** | Fear & Greed Index | 每小时 |
-
-**注意**：AI预测部分目前使用基于市场情绪的算法，未集成真实的LLM API。
-
-### 2. 决策策略
-
-系统采用**三层验证框架**：
-
-```
-Layer 1: 安全检查 (5项前置条件)
-    ├─ Gas费用是否合理
-    ├─ 数据是否完整
-    ├─ 市场是否极端
-    ├─ 波动率是否可控
-    └─ 账户状态是否正常
-    
-Layer 2: 多维度评分 (4个维度)
-    ├─ 📰 新闻信号 (30%权重)
-    ├─ 📈 价格信号 (25%权重)
-    ├─ 😊 情绪信号 (25%权重)
-    └─ 🤖 AI信号 (20%权重)
-    
-Layer 3: 最终决策
-    ├─ 做多(LONG): 评分≥63 + AI支持
-    ├─ 做空(SHORT): 评分≤57 + AI支持
-    └─ 观望(HOLD): 其他情况
-```
-
-### 3. 交易策略
-
-内置5种经典交易策略：
-
-| 策略 | 适用场景 | 实现状态 |
-|------|---------|---------|
-| 趋势跟踪 | 明确的上涨或下跌趋势 | ✅ 已实现 |
-| 均值回归 | 价格偏离均值 | ✅ 已实现 |
-| 突破策略 | 突破关键支撑/阻力位 | ✅ 已实现 |
-| 网格策略 | 震荡市场 | ✅ 已实现 |
-| 剥头皮 | 短线快速交易 | ✅ 已实现 |
-
-**AI决策层**会根据市场环境自动选择最适合的策略。
-
-### 4. 风险管理
-
-- **固定风险比例**：每笔交易风险固定（默认2%本金）
-- **动态止损止盈**：基于波动率和风险收益比计算
-- **杠杆仓位计算**：考虑杠杆倍数的科学仓位管理
-- **分批止盈**：三级止盈（2:1, 3:1, 4:1风险收益比）
+- ❌ **No Profit Guarantee** - This is an assistance tool, not a holy grail
+- ❌ **Cannot Predict Future** - Based on historical and current data analysis
+- ❌ **Requires Human Judgment** - Suggestions are for reference only, combine with your own judgment
+- ✅ **Risk at Your Own Risk** - Cryptocurrency trading has high risks, please use with caution
 
 ---
 
-## 🚀 快速开始
+## ✨ Core Features
 
-### 1. 安装依赖
+### 1. Real Data Collection
+
+The system obtains **real data** from the following sources:
+
+| Data Type | Data Source | Update Frequency |
+|-----------|-------------|------------------|
+| 📈 **K-line Data** | Binance API | Real-time |
+| 💰 **Gas Fees** | Etherscan + Mempool.space | Real-time |
+| 📰 **News** | NewsAPI + CryptoCompare + Odaily | Hourly |
+| 😊 **Market Sentiment** | Fear & Greed Index | Hourly |
+
+**Note**: The AI prediction part currently uses algorithms based on market sentiment and has not integrated real LLM APIs.
+
+### 2. Decision Strategy
+
+The system adopts a **three-layer verification framework**:
+
+```
+Layer 1: Safety Checks (5 prerequisite conditions)
+    ├─ Are gas fees reasonable
+    ├─ Is data complete
+    ├─ Is market extreme
+    ├─ Is volatility controllable
+    └─ Is account status normal
+    
+Layer 2: Multi-dimensional Scoring (4 dimensions)
+    ├─ 📰 News Signals (30% weight)
+    ├─ 📈 Price Signals (25% weight)
+    ├─ 😊 Sentiment Signals (25% weight)
+    └─ 🤖 AI Signals (20% weight)
+    
+Layer 3: Final Decision
+    ├─ Long: Score ≥63 + AI support
+    ├─ Short: Score ≤57 + AI support
+    └─ Hold: Other cases
+```
+
+### 3. Trading Strategies
+
+Built-in 5 classic trading strategies:
+
+| Strategy | Applicable Scenarios | Implementation Status |
+|----------|---------------------|----------------------|
+| Trend Following | Clear uptrend or downtrend | ✅ Implemented |
+| Mean Reversion | Price deviates from mean | ✅ Implemented |
+| Breakout Strategy | Breaks key support/resistance | ✅ Implemented |
+| Grid Strategy | Ranging market | ✅ Implemented |
+| Scalping | Short-term rapid trading | ✅ Implemented |
+
+The **AI Decision Layer** automatically selects the most suitable strategy based on market conditions.
+
+### 4. Risk Management
+
+- **Fixed Risk Ratio**: Fixed risk per trade (default 2% of capital)
+- **Dynamic Stop Loss/Take Profit**: Calculated based on volatility and risk-reward ratio
+- **Leverage Position Calculation**: Scientific position management considering leverage multiplier
+- **Batch Take Profit**: Three-tier take profit (2:1, 3:1, 4:1 risk-reward ratio)
+
+---
+
+## 🚀 Quick Start
+
+### 1. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+### 2. Configure Environment Variables
 
 ```bash
-# 复制.env.example到.env
+# Copy .env.example to .env
 cp .env.example .env
 
-# 编辑.env文件，添加API密钥
+# Edit .env file, add API keys
 nano .env
 ```
 
-需要的API密钥：
-- `NEWSAPI_KEY` - 新闻数据（可选，不设置会跳过新闻分析）
-- 其他API免费，无需配置
+Required API keys:
+- `NEWSAPI_KEY` - News data (optional, news analysis will be skipped if not set)
+- Other APIs are free, no configuration needed
 
-### 3. 运行分析
+### 3. Run Analysis
 
 ```bash
-# 一键分析BTC和ETH（推荐）
+# One-click analysis of BTC and ETH (recommended)
 bash run_trading_analysis.sh
 ```
 
-**就这么简单！**
+**It's that simple!**
 
 ---
 
-## 📊 使用示例
+## 📊 Usage Examples
 
-### 默认分析
+### Default Analysis
 
 ```bash
 bash run_trading_analysis.sh
 ```
 
-**默认配置**：
-- 本金：1000 USDT
-- 杠杆：10x
-- 风险：2%
-- 止损：2%
-- 币种：BTC + ETH
+**Default Configuration**:
+- Capital: 1000 USDT
+- Leverage: 10x
+- Risk: 2%
+- Stop Loss: 2%
+- Coins: BTC + ETH
 
-### 自定义参数
+### Custom Parameters
 
 ```bash
-# 编辑脚本
+# Edit script
 nano run_trading_analysis.sh
 
-# 修改这些参数
-CAPITAL=1000                    # 你的本金
-LEVERAGE=10                     # 杠杆倍数
-RISK=2.0                        # 风险比例（%）
-STOP_LOSS=2.0                   # 止损比例（%）
-SYMBOLS="BTCUSDT ETHUSDT"       # 要分析的币种
+# Modify these parameters
+CAPITAL=1000                    # Your capital
+LEVERAGE=10                     # Leverage multiplier
+RISK=2.0                        # Risk ratio (%)
+STOP_LOSS=2.0                   # Stop loss ratio (%)
+SYMBOLS="BTCUSDT ETHUSDT"       # Coins to analyze
 ```
 
-### 输出示例
+### Output Example
 
 ```
 ================================================================================
-📊 [1/2] 分析 BTCUSDT
+📊 [1/2] Analyzing BTCUSDT
 ================================================================================
-当前价格: $110,667
+Current Price: $110,667
 
-【决策结果】
-  🔴 操作: SHORT (做空)
-  置信度: 72%
-  原因: AI建议做空 + 引擎支持（10x杠杆）
+【Decision Result】
+  🔴 Action: SHORT (Short)
+  Confidence: 72%
+  Reason: AI suggests short + Engine support (10x leverage)
 
-【仓位管理】
-  杠杆: 10x
-  本金: 1000 USDT
-  保证金: 100 USDT (10%)
-  止损: $112,881 (+2%)
-  止盈1: $106,240 (-4%, 2:1) → 平50%
-  止盈2: $104,027 (-6%, 3:1) → 平30%
-  止盈3: $101,814 (-8%, 4:1) → 平20%
+【Position Management】
+  Leverage: 10x
+  Capital: 1000 USDT
+  Margin: 100 USDT (10%)
+  Stop Loss: $112,881 (+2%)
+  Take Profit 1: $106,240 (-4%, 2:1) → Close 50%
+  Take Profit 2: $104,027 (-6%, 3:1) → Close 30%
+  Take Profit 3: $101,814 (-8%, 4:1) → Close 20%
 
 ================================================================================
-📊 综合对比分析
+📊 Comprehensive Comparison Analysis
 ================================================================================
   🔴 BTCUSDT    SHORT
   ⚪ ETHUSDT    HOLD
 
-💡 交易建议：
-  ✅ 有做空机会，优先选择置信度高的币种（BTC）
+💡 Trading Suggestions:
+  ✅ Short opportunity available, prioritize high-confidence coins (BTC)
 ```
 
 ---
 
-## 📖 文档
+## 📖 Documentation
 
-| 文档 | 说明 |
-|------|------|
-| [HOW_TO_USE.md](HOW_TO_USE.md) | 完整使用指南 ⭐**推荐** |
-| [QUICK_START.md](QUICK_START.md) | 快速开始（1分钟上手） |
-| [PARAMETERS_GUIDE.md](PARAMETERS_GUIDE.md) | 参数详细说明 |
-| [docs/AI_DECISION_STRATEGY.md](docs/AI_DECISION_STRATEGY.md) | AI决策策略设计 |
-| [docs/FINAL_SUMMARY.md](docs/FINAL_SUMMARY.md) | 项目完整总结 |
-| [PROJECT_FILES.md](PROJECT_FILES.md) | 文件结构说明 |
+| Document | Description |
+|----------|-------------|
+| [HOW_TO_USE.md](HOW_TO_USE.md) | Complete Usage Guide ⭐**Recommended** |
+| [QUICK_START.md](QUICK_START.md) | Quick Start (1-minute setup) |
+| [PARAMETERS_GUIDE.md](PARAMETERS_GUIDE.md) | Detailed Parameter Description |
+| [docs/AI_DECISION_STRATEGY.md](docs/AI_DECISION_STRATEGY.md) | AI Decision Strategy Design |
+| [docs/FINAL_SUMMARY.md](docs/FINAL_SUMMARY.md) | Complete Project Summary |
+| [PROJECT_FILES.md](PROJECT_FILES.md) | File Structure Description |
 
 ---
 
-## 🏗️ 系统架构
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     数据收集层                               │
+│                     Data Collection Layer                    │
 ├──────────────┬──────────────┬──────────────┬────────────────┤
-│ Gas费用监控   │ K线数据获取   │ 新闻聚合     │ 市场情绪分析    │
+│ Gas Fee Monitor│ K-line Data   │ News Aggregation│ Market Sentiment │
 │ GasFeeMonitor│ DataFetcher  │ NewsAPI     │ SentimentAnalyzer│
 └──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
        │              │              │                │
        └──────────────┴──────────────┴────────────────┘
                             │
                     ┌───────▼────────┐
-                    │   数据整合器    │
+                    │  Data Integrator│
                     │ DataIntegrator │
-                    │  (26维特征)    │
+                    │  (26-dim features)│
                     └───────┬────────┘
                             │
                 ┌───────────┴───────────┐
                 │                       │
         ┌───────▼────────┐      ┌──────▼──────┐
-        │  AI决策层       │      │  决策引擎    │
-        │ AIDecisionLayer│      │DecisionEngine│
-        │  (策略选择)     │      │  (风险评估)  │
+        │  AI Decision    │      │ Decision   │
+        │   Layer         │      │   Engine    │
+        │(Strategy Select)│      │(Risk Assess)│
         └───────┬────────┘      └──────┬──────┘
                 │                       │
                 └───────────┬───────────┘
                             │
                     ┌───────▼────────┐
-                    │   最终决策      │
+                    │  Final Decision │
                     │ LONG/SHORT/HOLD│
                     └────────────────┘
 ```
 
 ---
 
-## 🔧 核心组件
+## 🔧 Core Components
 
-### 数据层
-- `utils/gas_monitor.py` - Gas费用监控
-- `utils/data_fetcher.py` - Binance数据获取
-- `utils/financial_news.py` - 新闻聚合
-- `utils/news_processor.py` - 新闻深度处理
-- `utils/sentiment_analyzer.py` - 市场情绪分析
-- `utils/data_integrator.py` - 数据整合（26维特征）
+### Data Layer
+- `utils/gas_monitor.py` - Gas fee monitoring
+- `utils/data_fetcher.py` - Binance data fetching
+- `utils/financial_news.py` - News aggregation
+- `utils/news_processor.py` - News deep processing
+- `utils/sentiment_analyzer.py` - Market sentiment analysis
+- `utils/data_integrator.py` - Data integration (26-dim features)
 
-### 决策层
-- `ai_decision_layer.py` - AI智能决策层
-- `utils/decision_engine.py` - 决策引擎（三层验证）
+### Decision Layer
+- `ai_decision_layer.py` - AI intelligent decision layer
+- `utils/decision_engine.py` - Decision engine (three-layer verification)
 
-### 策略层
-- `strategies/trend_following.py` - 趋势跟踪
-- `strategies/mean_reversion.py` - 均值回归
-- `strategies/breakout_strategy.py` - 突破策略
-- `strategies/grid_strategy.py` - 网格策略
-- `strategies/scalping_strategy.py` - 剥头皮策略
+### Strategy Layer
+- `strategies/trend_following.py` - Trend following
+- `strategies/mean_reversion.py` - Mean reversion
+- `strategies/breakout_strategy.py` - Breakout strategy
+- `strategies/grid_strategy.py` - Grid strategy
+- `strategies/scalping_strategy.py` - Scalping strategy
 
-### 应用层
-- `real_trading_decision.py` - 双币种对比分析
-- `advanced_trading_system.py` - 高级杠杆交易系统
-- `run_trading_analysis.sh` - 主要使用脚本
+### Application Layer
+- `real_trading_decision.py` - Dual-coin comparative analysis
+- `advanced_trading_system.py` - Advanced leveraged trading system
+- `run_trading_analysis.sh` - Main usage script
 
 ---
 
-## 📊 数据处理流程
+## 📊 Data Processing Flow
 
-### 26维特征向量
+### 26-Dimensional Feature Vector
 
-系统将市场数据整合为26维特征向量：
+The system integrates market data into a 26-dimensional feature vector:
 
 ```python
-[0-3]   Gas费用特征 (4维)
-  ├─ ETH Gas价格
-  ├─ BTC Fee价格
-  ├─ ETH是否适合交易
-  └─ BTC是否适合交易
+[0-3]   Gas Fee Features (4 dims)
+  ├─ ETH Gas price
+  ├─ BTC Fee price
+  ├─ ETH suitable for trading
+  └─ BTC suitable for trading
 
-[4-11]  价格特征 (8维)
-  ├─ 当前价格
-  ├─ 价格变化率
-  ├─ 平均成交量
-  ├─ 波动率
-  ├─ 趋势方向
-  ├─ 最高价
-  ├─ 最低价
-  └─ 价格区间
+[4-11]  Price Features (8 dims)
+  ├─ Current price
+  ├─ Price change rate
+  ├─ Average volume
+  ├─ Volatility
+  ├─ Trend direction
+  ├─ Highest price
+  ├─ Lowest price
+  └─ Price range
 
-[12-16] 新闻特征 (5维)
-  ├─ 新闻情绪分数
-  ├─ 正面新闻比例
-  ├─ 负面新闻比例
-  ├─ 新闻数量
-  └─ 新闻情绪标签
+[12-16] News Features (5 dims)
+  ├─ News sentiment score
+  ├─ Positive news ratio
+  ├─ Negative news ratio
+  ├─ News count
+  └─ News sentiment label
 
-[17-20] 市场情绪特征 (4维)
-  ├─ 市场情绪分数
-  ├─ 市场置信度
-  ├─ 恐惧贪婪指数
-  └─ 市场情绪标签
+[17-20] Market Sentiment Features (4 dims)
+  ├─ Market sentiment score
+  ├─ Market confidence
+  ├─ Fear & Greed Index
+  └─ Market sentiment label
 
-[21-25] AI预测特征 (5维)
-  ├─ AI平均置信度
-  ├─ 看涨模型数量
-  ├─ 看跌模型数量
-  ├─ AI一致性比例
-  └─ AI共识方向
+[21-25] AI Prediction Features (5 dims)
+  ├─ AI average confidence
+  ├─ Bullish model count
+  ├─ Bearish model count
+  ├─ AI agreement ratio
+  └─ AI consensus direction
 ```
 
 ---
 
-## ⚙️ 配置参数
+## ⚙️ Configuration Parameters
 
-| 参数 | 说明 | 默认值 | 推荐范围 |
-|------|------|--------|---------|
-| `CAPITAL` | 投入本金（USDT） | 1000 | 100-10000 |
-| `LEVERAGE` | 杠杆倍数 | 10 | 5-20 |
-| `RISK` | 单笔风险比例（%） | 2.0 | 1.0-3.0 |
-| `STOP_LOSS` | 止损比例（%） | 2.0 | 1.5-3.0 |
-| `SYMBOLS` | 交易对列表 | "BTCUSDT ETHUSDT" | 任意币安交易对 |
+| Parameter | Description | Default | Recommended Range |
+|-----------|-------------|---------|-------------------|
+| `CAPITAL` | Investment capital (USDT) | 1000 | 100-10000 |
+| `LEVERAGE` | Leverage multiplier | 10 | 5-20 |
+| `RISK` | Single trade risk ratio (%) | 2.0 | 1.0-3.0 |
+| `STOP_LOSS` | Stop loss ratio (%) | 2.0 | 1.5-3.0 |
+| `SYMBOLS` | Trading pair list | "BTCUSDT ETHUSDT" | Any Binance trading pair |
 
-### 风险等级参考
+### Risk Level Reference
 
-| 杠杆 | 爆仓距离 | 风险等级 |
-|------|---------|---------|
-| 5x | 20% | 🟢 低风险 |
-| 10x | 10% | 🟡 中等风险 |
-| 20x | 5% | 🔴 高风险 |
-| 50x | 2% | ⚫ 危险 |
+| Leverage | Liquidation Distance | Risk Level |
+|----------|---------------------|------------|
+| 5x | 20% | 🟢 Low Risk |
+| 10x | 10% | 🟡 Medium Risk |
+| 20x | 5% | 🔴 High Risk |
+| 50x | 2% | ⚫ Dangerous |
 
 ---
 
-## 🧪 测试
+## 🧪 Testing
 
 ```bash
-# 运行决策引擎测试
+# Run decision engine tests
 python -m pytest tests/test_decision_engine.py -v
 
-# 运行策略测试
+# Run strategy tests
 python -m pytest tests/test_strategies.py -v
 
-# 运行所有测试
+# Run all tests
 python -m pytest tests/ -v
 ```
 
-**测试覆盖**：
-- 决策引擎：8个核心场景
-- 交易策略：25个测试用例
-- 覆盖率：>80%
+**Test Coverage**:
+- Decision Engine: 8 core scenarios
+- Trading Strategies: 25 test cases
+- Coverage: >80%
 
 ---
 
-## 🔐 数据隐私
+## 🔐 Data Privacy
 
-- ✅ 所有市场数据通过公开API获取
-- ✅ 不收集用户个人信息
-- ✅ 不上传交易数据到服务器
-- ✅ 完全本地运行
-
----
-
-## ⚠️ 风险提示
-
-### 市场风险
-- 加密货币市场**波动极大**
-- 价格可能在短时间内大幅变动
-- 过去表现**不代表未来结果**
-
-### 杠杆风险
-- 杠杆会放大盈利，**也会放大亏损**
-- 10倍杠杆：价格反向10%就爆仓
-- 建议新手使用**低杠杆**（5-10倍）
-
-### 系统局限
-- ❌ 不能预测黑天鹅事件
-- ❌ 不能应对突发新闻
-- ❌ 不能保证100%准确
-- ❌ 依赖数据源稳定性
-
-### 使用建议
-1. ✅ 先用小资金测试
-2. ✅ 严格执行止损
-3. ✅ 不要重仓单个币种
-4. ✅ 分批止盈，不贪婪
-5. ✅ 保持理性，不情绪化
+- ✅ All market data obtained through public APIs
+- ✅ No personal information collected
+- ✅ No trading data uploaded to servers
+- ✅ Completely local operation
 
 ---
 
-## 📈 实际表现
+## ⚠️ Risk Warning
 
-**免责声明**：以下数据仅为系统测试结果，不代表实际交易表现。
+### Market Risks
+- Cryptocurrency market **extremely volatile**
+- Prices can change significantly in short time
+- Past performance **does not represent future results**
 
-### 测试环境
-- 时间：2025-10-30
-- 币种：BTC, ETH
-- 周期：12小时
-- 策略：趋势跟踪 + 均值回归
+### Leverage Risks
+- Leverage amplifies profits, **also amplifies losses**
+- 10x leverage: 10% adverse price movement leads to liquidation
+- Beginners recommended to use **low leverage** (5-10x)
 
-### 决策准确性
-- 安全检查通过率：95%
-- 信号一致性：75%
-- 趋势识别准确度：~70%（估计）
+### System Limitations
+- ❌ Cannot predict black swan events
+- ❌ Cannot respond to sudden news
+- ❌ Cannot guarantee 100% accuracy
+- ❌ Depends on data source stability
 
-**注意**：实际表现受市场环境、参数设置、执行时机等多种因素影响。
-
----
-
-## 🤝 贡献
-
-欢迎提交Issue和Pull Request！
-
-### 贡献方向
-- 🐛 Bug修复
-- ✨ 新功能建议
-- 📚 文档改进
-- 🧪 测试用例
-- 🌐 多语言支持
+### Usage Recommendations
+1. ✅ Test with small capital first
+2. ✅ Strictly execute stop loss
+3. ✅ Don't overweight single coins
+4. ✅ Take profit in batches, don't be greedy
+5. ✅ Stay rational, avoid emotional trading
 
 ---
 
-## 📜 许可证
+## 📈 Actual Performance
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+**Disclaimer**: The following data are system test results only and do not represent actual trading performance.
 
----
+### Test Environment
+- Time: 2025-10-30
+- Coins: BTC, ETH
+- Period: 12 hours
+- Strategy: Trend Following + Mean Reversion
 
-## 👨‍💻 作者
+### Decision Accuracy
+- Safety check pass rate: 95%
+- Signal consistency: 75%
+- Trend recognition accuracy: ~70% (estimated)
 
-不愿透露姓名的佚名
----
-
-## 🙏 致谢
-
-感谢以下开源项目和数据提供商：
-
-- [Binance API](https://binance-docs.github.io/apidocs/) - K线数据
-- [Etherscan API](https://etherscan.io/apis) - ETH Gas数据
-- [Mempool.space API](https://mempool.space/docs/api) - BTC Fee数据
-- [NewsAPI](https://newsapi.org/) - 新闻数据
-- [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) - 恐惧贪婪指数
-- [CryptoCompare](https://www.cryptocompare.com/) - 加密货币新闻
-- [Odaily](https://www.odaily.news/) - 中文加密货币新闻
+**Note**: Actual performance is affected by market conditions, parameter settings, execution timing, and other factors.
 
 ---
 
-## 📞 联系方式
+## 🤝 Contributing
 
-如有问题或建议，欢迎通过以下方式联系：
+Issues and Pull Requests are welcome!
+
+### Contribution Areas
+- 🐛 Bug fixes
+- ✨ New feature suggestions
+- 📚 Documentation improvements
+- 🧪 Test cases
+- 🌐 Multi-language support
+
+---
+
+## 📜 License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+---
+
+## 👨‍💻 Author
+
+Anonymous who prefers not to disclose name
+---
+
+## 🙏 Acknowledgments
+
+Thanks to the following open source projects and data providers:
+
+- [Binance API](https://binance-docs.github.io/apidocs/) - K-line data
+- [Etherscan API](https://etherscan.io/apis) - ETH Gas data
+- [Mempool.space API](https://mempool.space/docs/api) - BTC Fee data
+- [NewsAPI](https://newsapi.org/) - News data
+- [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) - Fear & Greed Index
+- [CryptoCompare](https://www.cryptocompare.com/) - Cryptocurrency news
+- [Odaily](https://www.odaily.news/) - Chinese cryptocurrency news
+
+---
+
+## 📞 Contact
+
+For questions or suggestions, feel free to contact through:
 
 - 💬 Issue: [GitHub Issues](https://github.com/Timwood0x10/predict/issues)
 
 ---
 
-## 🎓 学习资源
-ss
-推荐学习资源：
+## 🎓 Learning Resources
 
-- [Binance Academy](https://academy.binance.com/) - 加密货币基础知识
-- [Investopedia](https://www.investopedia.com/) - 交易和投资教育
-- [TradingView](https://www.tradingview.com/) - 技术分析学习
+Recommended learning resources:
+
+- [Binance Academy](https://academy.binance.com/) - Cryptocurrency basics
+- [Investopedia](https://www.investopedia.com/) - Trading and investment education
+- [TradingView](https://www.tradingview.com/) - Technical analysis learning
 
 ---
 
-**最后提醒**：交易有风险，入市需谨慎！本系统仅为辅助工具，不构成投资建议。请在充分了解风险的情况下使用。
+**Final Reminder**: Trading involves risks, enter the market with caution! This system is only an assistance tool and does not constitute investment advice. Please use it with full understanding of the risks.
 
-**祝交易顺利！** 🚀
+**Happy Trading!** 🚀
