@@ -272,19 +272,16 @@ class DataIntegrator:
         return features, names
     
     def integrate_all(self, gas_data=None, kline_df=None, news_sentiment=None, 
-                     market_sentiment=None, ai_predictions=None, hours=12):
+                     market_sentiment=None, ai_predictions=None, hours=12,
+                     orderbook_data=None, macro_data=None, futures_data=None):
         """
-        整合所有数据
+        整合所有数据（35维）
         
         Args:
-            hours: 分析的小时数（默认12小时）
-        
-        Returns:
-            dict: {
-                'features': [特征向量],
-                'feature_names': [特征名称],
-                'summary': {关键指标摘要}
-            }
+            hours: 分析的小时数
+            orderbook_data: 订单簿数据（新增）
+            macro_data: 宏观指标（新增）
+            futures_data: 期货数据（新增）
         """
         all_features = []
         all_names = []
@@ -294,7 +291,7 @@ class DataIntegrator:
         all_features.extend(gas_features)
         all_names.extend(gas_names)
         
-        # 2. K线数据（使用指定的小时数）
+        # 2. K线数据
         kline_features, kline_names = self.integrate_kline_data(kline_df, hours=hours)
         all_features.extend(kline_features)
         all_names.extend(kline_names)
@@ -313,6 +310,42 @@ class DataIntegrator:
         ai_features, ai_names = self.integrate_ai_predictions(ai_predictions)
         all_features.extend(ai_features)
         all_names.extend(ai_names)
+        
+        # 6. 订单簿（新增3维）
+        if orderbook_data:
+            all_features.extend([
+                orderbook_data.get('orderbook_imbalance', 0),
+                orderbook_data.get('support_strength', 50),
+                orderbook_data.get('resistance_strength', 50)
+            ])
+            all_names.extend(['orderbook_imbalance', 'support_strength', 'resistance_strength'])
+        else:
+            all_features.extend([0, 50, 50])
+            all_names.extend(['orderbook_imbalance', 'support_strength', 'resistance_strength'])
+        
+        # 7. 宏观指标（新增4维）
+        if macro_data:
+            all_features.extend([
+                macro_data.get('dxy_change', 0),
+                macro_data.get('sp500_change', 0),
+                macro_data.get('vix_level', 20),
+                macro_data.get('risk_appetite', 50)
+            ])
+            all_names.extend(['dxy_change', 'sp500_change', 'vix_level', 'risk_appetite'])
+        else:
+            all_features.extend([0, 0, 20, 50])
+            all_names.extend(['dxy_change', 'sp500_change', 'vix_level', 'risk_appetite'])
+        
+        # 8. 期货数据（新增2维）
+        if futures_data:
+            all_features.extend([
+                futures_data.get('oi_change', 0),
+                futures_data.get('funding_trend', 0)
+            ])
+            all_names.extend(['oi_change', 'funding_trend'])
+        else:
+            all_features.extend([0, 0])
+            all_names.extend(['oi_change', 'funding_trend'])
         
         # 生成摘要
         summary = self._generate_summary(

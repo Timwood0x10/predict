@@ -99,7 +99,7 @@ class DecisionEngine:
         # 5. 账户状态检查
         checks['account'] = (
             len(self.existing_positions) < 3 and
-            self.account_balance > 100
+            self.account_balance > 10  # 降低到10 USDT最低要求
         )
         if not checks['account']:
             return False, f"账户状态不允许 (持仓: {len(self.existing_positions)}, 余额: ${self.account_balance:.2f})"

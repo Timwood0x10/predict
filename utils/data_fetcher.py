@@ -339,3 +339,105 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("测试完成!")
     print("=" * 60)
+
+    def get_futures_open_interest(self, symbol: str) -> dict:
+        """
+        获取期货未平仓合约(OI)数据
+        
+        Returns:
+            {
+                'oi_change': OI变化率(%),
+                'funding_trend': 资金费率趋势(-1到1)
+            }
+        """
+        try:
+            # 获取当前OI
+            oi_data = self.futures_client.futures_open_interest(symbol=symbol)
+            current_oi = float(oi_data['openInterest'])
+            
+            # 获取历史OI计算变化率（简化：与24小时前对比）
+            # 实际应该获取历史数据，这里简化处理
+            oi_change = 0  # 需要历史数据才能计算，暂时返回0
+            
+            # 获取资金费率
+            funding_rate = self._get_funding_rate_trend(symbol)
+            
+            return {
+                'oi_change': oi_change,
+                'funding_trend': funding_rate
+            }
+            
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"期货OI获取失败: {e}")
+            return {
+                'oi_change': 0,
+                'funding_trend': 0
+            }
+    
+    def _get_funding_rate_trend(self, symbol: str) -> float:
+        """
+        计算资金费率趋势 (-1到1)
+        
+        逻辑:
+        - 连续正费率 -> 趋势为正
+        - 连续负费率 -> 趋势为负
+        """
+        try:
+            # 获取最近资金费率历史
+            funding_history = self.futures_client.futures_funding_rate(
+                symbol=symbol,
+                limit=8  # 最近8次（约1天）
+            )
+            
+            if not funding_history:
+                return 0
+            
+            # 计算正负费率比例
+            rates = [float(f['fundingRate']) for f in funding_history]
+            positive_count = sum(1 for r in rates if r > 0)
+            negative_count = sum(1 for r in rates if r < 0)
+            
+            total = len(rates)
+            if total == 0:
+                return 0
+            
+            # 趋势：正费率占比 - 负费率占比
+            trend = (positive_count - negative_count) / total
+            return round(trend, 4)
+            
+        except Exception as e:
+            return 0
+    
+    def get_order_book(self, symbol: str, limit: int = 20) -> dict:
+        """获取订单簿"""
+        endpoint = f"{self.base_url}/api/v3/depth"
+        params = {'symbol': symbol, 'limit': limit}
+        response = requests.get(endpoint, params=params)
+        return response.json()
+    
+    def get_futures_open_interest(self, symbol: str) -> dict:
+        """
+        获取期货OI和资金费率
+        Returns: {'oi_change': float, 'funding_trend': float}
+        """
+        try:
+            # 资金费率历史
+            endpoint = f"{self.base_url}/fapi/v1/fundingRate"
+            params = {'symbol': symbol, 'limit': 8}
+            response = requests.get(endpoint, params=params)
+            funding_history = response.json()
+            
+            # 计算资金费率趋势
+            if funding_history:
+                rates = [float(f['fundingRate']) for f in funding_history]
+                positive = sum(1 for r in rates if r > 0)
+                negative = sum(1 for r in rates if r < 0)
+                trend = (positive - negative) / len(rates) if rates else 0
+            else:
+                trend = 0
+            
+            return {'oi_change': 0, 'funding_trend': round(trend, 4)}
+        except Exception as e:
+            logger.warning(f"期货数据获取失败: {e}")
+            return {'oi_change': 0, 'funding_trend': 0}

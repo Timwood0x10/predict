@@ -23,10 +23,14 @@ from utils.multi_source_fetcher import MultiSourceDataFetcher
 from utils.financial_news import FinancialNewsAggregator
 from utils.news_processor import NewsProcessor
 from utils.sentiment_analyzer import MarketSentimentAnalyzer
-from utils.polymarket_fetcher import PolymarketFetcher  # 新增
+from utils.polymarket_fetcher import PolymarketFetcher
 from utils.data_integrator import DataIntegrator
 from utils.decision_engine import DecisionEngine
 from ai_decision_layer import AIDecisionLayer
+# Phase 1 新增
+from utils.orderbook_analyzer import OrderbookAnalyzer
+from utils.macro_indicators import MacroIndicators
+from utils.dynamic_weights import DynamicWeightManager
 
 # 配置日志
 logging.basicConfig(
@@ -79,8 +83,13 @@ class AdvancedTradingSystem:
         self.news_api = FinancialNewsAggregator(newsapi_key=newsapi_key)
         self.news_processor = NewsProcessor()
         self.sentiment_analyzer = MarketSentimentAnalyzer()
-        self.polymarket = PolymarketFetcher()  # 新增
+        self.polymarket = PolymarketFetcher()
         self.data_integrator = DataIntegrator()
+        
+        # Phase 1 新增模块
+        self.orderbook_analyzer = OrderbookAnalyzer(self.data_fetcher)
+        self.macro_indicators = MacroIndicators()
+        self.dynamic_weights = DynamicWeightManager()
         
         # 决策组件
         self.decision_engine = DecisionEngine(
@@ -247,7 +256,7 @@ class AdvancedTradingSystem:
             all_data['polymarket_sentiment'] = None
         
         # 6. AI预测
-        logger.info("\n[6/6] 生成AI预测...")
+        logger.info("\n[6/9] 生成AI预测...")
         ai_predictions = self._generate_ai_predictions(
             news_sentiment=all_data.get('news_sentiment'),
             market_sentiment=all_data.get('market_sentiment'),
@@ -256,6 +265,36 @@ class AdvancedTradingSystem:
         )
         all_data['ai_predictions'] = ai_predictions
         logger.info(f"   ✓ 完成")
+        
+        # 7. 订单簿深度（新增）
+        logger.info("\n[7/9] 分析订单簿深度...")
+        try:
+            orderbook_data = self.orderbook_analyzer.analyze(symbol, depth=20)
+            all_data['orderbook_data'] = orderbook_data
+            logger.info(f"   ✓ 失衡度: {orderbook_data['orderbook_imbalance']:.2f}")
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['orderbook_data'] = None
+        
+        # 8. 宏观经济指标（新增）
+        logger.info("\n[8/9] 获取宏观经济指标...")
+        try:
+            macro_data = self.macro_indicators.get_indicators()
+            all_data['macro_data'] = macro_data
+            logger.info(f"   ✓ 风险偏好: {macro_data['risk_appetite']:.0f}/100")
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['macro_data'] = None
+        
+        # 9. 期货数据（新增）
+        logger.info("\n[9/9] 获取期货数据...")
+        try:
+            futures_data = self.data_fetcher.get_futures_open_interest(symbol)
+            all_data['futures_data'] = futures_data
+            logger.info(f"   ✓ 资金费率趋势: {futures_data['funding_trend']:.2f}")
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['futures_data'] = None
         
         return all_data
     
@@ -354,7 +393,10 @@ class AdvancedTradingSystem:
                 news_sentiment=market_data.get('news_sentiment'),
                 market_sentiment=market_data.get('market_sentiment'),
                 ai_predictions=market_data.get('ai_predictions'),
-                hours=12
+                hours=12,
+                orderbook_data=market_data.get('orderbook_data'),
+                macro_data=market_data.get('macro_data'),
+                futures_data=market_data.get('futures_data')
             )
             
             features = integrated_data['features']
