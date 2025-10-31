@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==============================================================================
-# 高级杠杆交易决策系统 - 快速启动脚本
+# 高级杠杆交易决策系统 - 快速启动脚本（增强版）
 # ==============================================================================
 # 
 # 使用方法：
@@ -10,6 +10,10 @@
 #   2. 修改下面的参数后运行：
 #      编辑本文件 → 修改参数 → 保存 → 运行
 #
+# 新功能：
+#   ✅ 回测功能 - 使用历史数据测试策略
+#   ✅ 数据保存 - 保存各维度收集的数据到文件
+#
 # ==============================================================================
 
 # ================================ 参数配置 ====================================
@@ -18,7 +22,7 @@
 # 说明：你准备投入多少U进行交易
 # 范围：任意正数，建议 100-10000
 # 示例：1000 表示投入1000 USDT
-CAPITAL=1000
+CAPITAL=10
 
 # 📊 杠杆倍数
 # 说明：放大多少倍的交易资金
@@ -29,7 +33,7 @@ CAPITAL=1000
 #   - 老手：10-20倍（激进）
 #   - 危险：>20倍（不建议）
 # 示例：10 表示10倍杠杆
-LEVERAGE=10
+LEVERAGE=5
 
 # ⚠️ 风险比例（%）
 # 说明：单笔交易愿意承受的最大损失占本金的百分比
@@ -64,6 +68,13 @@ STOP_LOSS=2.0
 #   - DOGEUSDT (狗狗币)
 # 示例：BTCUSDT ETHUSDT 表示同时分析比特币和以太坊
 SYMBOLS="BTCUSDT ETHUSDT"
+
+# 💾 数据保存
+# 说明：是否保存收集到的各维度数据
+# 选项：
+#   - yes: 保存数据到 data/analysis/ 目录
+#   - no:  不保存（默认）
+SAVE_DATA="yes"
 
 # ==============================================================================
 # 以下是自动计算的信息（无需修改）
@@ -131,6 +142,12 @@ echo ""
 echo "🔄 启动分析..."
 echo ""
 
+# 创建数据目录
+if [ "$SAVE_DATA" = "yes" ]; then
+    mkdir -p data/analysis
+    echo "📁 数据保存目录: data/analysis/"
+fi
+
 # 统计变量
 declare -A results
 total_count=0
@@ -153,14 +170,66 @@ for i in "${!symbol_array[@]}"; do
     echo ""
     
     # 执行分析并捕获输出
-    output=$(python advanced_trading_system.py \
-        --capital "$CAPITAL" \
-        --leverage "$LEVERAGE" \
-        --risk "$RISK" \
-        --stop-loss "$STOP_LOSS" \
-        --symbol "$SYMBOL" 2>&1)
-    
-    echo "$output"
+    if [ "$SAVE_DATA" = "yes" ]; then
+        # 使用 advanced_trading_system.py 直接分析，然后保存数据
+        output=$(python advanced_trading_system.py \
+            --capital "$CAPITAL" \
+            --leverage "$LEVERAGE" \
+            --risk "$RISK" \
+            --stop-loss "$STOP_LOSS" \
+            --symbol "$SYMBOL" 2>&1)
+        
+        echo "$output"
+        
+        # 如果需要保存数据，再次运行一次获取结果并保存
+        python -c "
+import sys
+sys.path.insert(0, '.')
+from advanced_trading_system import AdvancedTradingSystem
+from data_exporter import DataExporter
+import logging
+
+# 禁用日志输出
+logging.basicConfig(level=logging.ERROR)
+
+# 创建系统
+system = AdvancedTradingSystem(
+    capital_usdt=$CAPITAL,
+    leverage=$LEVERAGE,
+    risk_percent=$RISK
+)
+
+# 执行分析
+result = system.analyze_with_leverage(
+    symbol='$SYMBOL',
+    stop_loss_pct=$STOP_LOSS
+)
+
+# 保存数据
+if result:
+    exporter = DataExporter()
+    market_data = result.get('market_data', {})
+    exported = exporter.export_all_data(
+        symbol='$SYMBOL',
+        market_data=market_data,
+        analysis_result=result
+    )
+    print('\n✅ 数据已保存到以下文件:')
+    for key, path in exported.items():
+        import os
+        print(f'  📄 {key}: {os.path.basename(path)}')
+" 2>&1
+    else
+        # 普通分析（不保存数据）
+        output=$(python advanced_trading_system.py \
+            --capital "$CAPITAL" \
+            --leverage "$LEVERAGE" \
+            --risk "$RISK" \
+            --stop-loss "$STOP_LOSS" \
+            --symbol "$SYMBOL" 2>&1)
+        
+        echo "$output"
+    fi
     
     # 提取决策结果（从"最终决策"部分）
     action=$(echo "$output" | grep -A 2 "【最终决策】" | grep "操作:" | awk '{print $NF}')
@@ -250,9 +319,19 @@ echo "════════════════════════�
 echo "✅ 所有分析完成！"
 echo "════════════════════════════════════════════════════════════════════════════════"
 echo ""
+echo "📊 完成内容："
+echo "  ✅ 实时分析: $total_count 个币种"
+if [ "$SAVE_DATA" = "yes" ]; then
+    echo "  ✅ 数据保存: data/analysis/"
+fi
+echo ""
 echo "💡 提示："
 echo "  - 如需修改参数，编辑此脚本文件"
 echo "  - 如需分析其他币种，修改 SYMBOLS 参数"
 echo "  - 建议先用小资金测试"
 echo "  - 可同时分析多个币种：SYMBOLS=\"BTCUSDT ETHUSDT BNBUSDT\""
+if [ "$SAVE_DATA" = "yes" ]; then
+    echo "  - 查看保存的数据: ls -lh data/analysis/"
+fi
+echo "  - 运行回测: bash run_backtest.sh"
 echo ""

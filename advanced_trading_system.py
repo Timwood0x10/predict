@@ -399,6 +399,7 @@ class AdvancedTradingSystem:
             
             elapsed = (datetime.now() - start_time).total_seconds()
             final_decision['elapsed_time'] = elapsed
+            final_decision['market_data'] = market_data  # 添加原始市场数据
             
             return final_decision
             
@@ -692,24 +693,55 @@ class AdvancedTradingSystem:
             print(f"    看涨市场: {poly.get('bullish_markets', 0)}个")
             print(f"    看跌市场: {poly.get('bearish_markets', 0)}个")
         
-        # AI建议
-        print("\n【AI决策层】")
+        # AI建议（增强：始终显示AI的独立建议）
+        print("\n【AI决策层建议】")
         ai_dec = ai['decision']
-        print(f"  建议: {ai_dec['action']}")
-        print(f"  置信度: {ai_dec['confidence']:.0f}%")
+        print(f"  🤖 AI建议: {ai_dec['action']}")
+        print(f"  📊 AI置信度: {ai_dec['confidence']:.0f}%")
+        print(f"  💡 AI理由: {ai_dec.get('reason', '综合多维度分析')}")
+        
+        # 如果AI给出交易建议，显示AI建议的仓位（即使最终决策是HOLD）
+        if ai_dec['action'] in ['LONG', 'SHORT']:
+            ai_position = self._calculate_leverage_position(
+                result['current_price'], 
+                ai_dec['action'], 
+                2.0  # 使用默认2%止损
+            )
+            print(f"\n  【AI建议仓位】（仅供参考）")
+            print(f"    方向: {ai_dec['action']}")
+            print(f"    入场价: ${ai_position['entry_price']:,.2f}")
+            print(f"    止损价: ${ai_position['stop_loss']:,.2f}")
+            print(f"    仓位: {ai_position['position_size']:.6f} 币")
+            print(f"    保证金: {ai_position['margin_required']:.2f} USDT")
+            print(f"    最大亏损: {ai_position['max_loss']:.2f} USDT")
         
         # 引擎验证
-        print("\n【决策引擎】")
+        print("\n【决策引擎验证】")
         eng_dec = engine['decision']
-        print(f"  验证: {eng_dec['action']}")
-        print(f"  安全检查: {'✅ 通过' if engine['safety_checks']['passed'] else '❌ 未通过'}")
+        print(f"  验证结果: {eng_dec['action']}")
+        safety_passed = engine['safety_checks']['passed']
+        safety_reason = engine['safety_checks'].get('reason', '')
+        print(f"  安全检查: {'✅ 通过' if safety_passed else '❌ 未通过'}")
+        if not safety_passed:
+            print(f"  未通过原因: {safety_reason}")
         
         # 最终决策
-        print("\n【最终决策】")
+        print("\n【综合最终决策】")
         action_emoji = "🟢" if final['action'] == "LONG" else ("🔴" if final['action'] == "SHORT" else "⚪")
         print(f"  {action_emoji} 操作: {final['action']}")
         print(f"  置信度: {final['confidence']:.0f}%")
         print(f"  原因: {final['reason']}")
+        
+        # 如果最终是HOLD但AI有建议，给出说明
+        if final['action'] == 'HOLD' and ai_dec['action'] in ['LONG', 'SHORT']:
+            print(f"\n  💡 提示: AI建议{ai_dec['action']}，但因以下原因未执行：")
+            if not safety_passed:
+                print(f"     - 安全检查未通过: {safety_reason}")
+            elif final['reason'].find('评分不足') != -1:
+                print(f"     - 决策引擎评分不足（需要更强的信号确认）")
+            elif final['reason'].find('信号不一致') != -1:
+                print(f"     - AI和引擎信号不一致（需要等待信号统一）")
+            print(f"  💡 建议: 可以关注市场变化，如果条件改善可考虑AI的建议")
         
         # 杠杆仓位
         if final.get('position'):

@@ -5,6 +5,14 @@
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+## 🎉 最新更新 (v2.1)
+
+- ✅ **回测功能** - 使用历史数据测试策略表现（`backtest_engine.py`）
+- ✅ **数据保存** - 保存各维度收集的数据到文件（`data_exporter.py`）
+- ✅ **增强版脚本** - 一键启动分析+回测+数据保存（`run_trading_analysis.sh`）
+
+📚 详细文档：[CHANGELOG.md](CHANGELOG.md) | [回测和数据保存指南](BACKTEST_AND_DATA_GUIDE.md)
+
 ---
 
 ## 📋 项目简介

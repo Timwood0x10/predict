@@ -298,40 +298,22 @@ class AIDecisionLayer:
         logger.info("AI智能决策开始")
         logger.info("="*80)
         
-        # 1. 基础安全检查（使用决策引擎）
-        safety_pass, safety_reason = self.decision_engine.safety_check(features)
+        # 注意：安全检查由DecisionEngine统一负责，这里不再重复检查
         
-        if not safety_pass:
-            logger.warning(f"安全检查失败: {safety_reason}")
-            return {
-                'timestamp': timestamp,
-                'decision': {
-                    'action': 'NEUTRAL',
-                    'confidence': 0,
-                    'reason': f'安全检查失败: {safety_reason}',
-                    'source': 'safety_check'
-                },
-                'market_environment': None,
-                'strategies_signals': None,
-                'selected_strategy': None
-            }
-        
-        logger.info(f"✓ 安全检查通过: {safety_reason}")
-        
-        # 2. 分析市场环境
+        # 1. 分析市场环境
         market_env = self.analyze_market_environment(features, metadata)
         
-        # 3. 运行所有策略
+        # 2. 运行所有策略
         all_signals = self.run_all_strategies(features, metadata)
         
         if not all_signals:
-            logger.info("无有效策略信号，保持观望")
+            logger.info("无有效策略信号，保持中性")
             return {
                 'timestamp': timestamp,
                 'decision': {
                     'action': 'NEUTRAL',
-                    'confidence': 0,
-                    'reason': '无有效策略信号',
+                    'confidence': 50,  # 改为50而不是0，表示中性而不是失败
+                    'reason': '无有效策略信号，市场方向不明确',
                     'source': 'no_signals'
                 },
                 'market_environment': market_env,
@@ -339,7 +321,7 @@ class AIDecisionLayer:
                 'selected_strategy': None
             }
         
-        # 4. 选择决策方式
+        # 3. 选择决策方式
         if use_aggregation:
             # 方式A: 信号聚合
             aggregated = self.aggregate_signals(all_signals)
