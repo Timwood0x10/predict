@@ -273,7 +273,8 @@ class DataIntegrator:
     
     def integrate_all(self, gas_data=None, kline_df=None, news_sentiment=None, 
                      market_sentiment=None, ai_predictions=None, hours=12,
-                     orderbook_data=None, macro_data=None, futures_data=None):
+                     orderbook_data=None, macro_data=None, futures_data=None,
+                     technical_indicators=None, multi_timeframe=None, support_resistance=None):
         """
         整合所有数据（35维）
         
@@ -347,6 +348,46 @@ class DataIntegrator:
             all_features.extend([0, 0])
             all_names.extend(['oi_change', 'funding_trend'])
         
+        # 9. 技术指标（Phase 2新增6维）
+        if technical_indicators:
+            all_features.extend([
+                technical_indicators.get('macd_line', 0),
+                technical_indicators.get('macd_signal', 0),
+                technical_indicators.get('macd_hist', 0),
+                technical_indicators.get('rsi', 50),
+                technical_indicators.get('bb_position', 0.5),
+                technical_indicators.get('ema_trend', 0)
+            ])
+            all_names.extend(['macd_line', 'macd_signal', 'macd_hist', 'rsi', 'bb_position', 'ema_trend'])
+        else:
+            all_features.extend([0, 0, 0, 50, 0.5, 0])
+            all_names.extend(['macd_line', 'macd_signal', 'macd_hist', 'rsi', 'bb_position', 'ema_trend'])
+        
+        # 10. 多周期趋势（Phase 2新增4维）
+        if multi_timeframe and 'timeframes' in multi_timeframe:
+            tf = multi_timeframe['timeframes']
+            all_features.extend([
+                tf.get('1m', {}).get('trend', 0),
+                tf.get('15m', {}).get('trend', 0),
+                tf.get('1h', {}).get('trend', 0),
+                tf.get('4h', {}).get('trend', 0)
+            ])
+            all_names.extend(['trend_1m', 'trend_15m', 'trend_1h', 'trend_4h'])
+        else:
+            all_features.extend([0, 0, 0, 0])
+            all_names.extend(['trend_1m', 'trend_15m', 'trend_1h', 'trend_4h'])
+        
+        # 11. 支撑阻力（Phase 2新增2维）
+        if support_resistance:
+            all_features.extend([
+                support_resistance.get('support_distance', 2.0),
+                support_resistance.get('resistance_distance', 2.0)
+            ])
+            all_names.extend(['support_distance', 'resistance_distance'])
+        else:
+            all_features.extend([2.0, 2.0])
+            all_names.extend(['support_distance', 'resistance_distance'])
+        
         # 生成摘要
         summary = self._generate_summary(
             gas_data, kline_df, news_sentiment, 
@@ -395,32 +436,266 @@ class DataIntegrator:
         
         return summary
     
-    def format_for_ai_prompt(self, integrated_data):
+    def format_for_ai_prompt(self, integrated_data, technical_indicators=None, 
+                              multi_timeframe=None, support_resistance=None):
         """
-        格式化为AI Prompt友好的格式
+        格式化为AI Prompt友好的格式（包含Phase2技术指标）
+        
+        Args:
+            integrated_data: 整合后的数据
+            technical_indicators: 技术指标详细信息
+            multi_timeframe: 多周期分析详细信息
+            support_resistance: 支撑阻力详细信息
         
         Returns:
             str: AI可读的数据描述
         """
         features = integrated_data['features']
         names = integrated_data['feature_names']
-        summary = integrated_data['summary']
+        summary = integrated_data.get('summary', {})
         
-        # 构建简洁的数据描述
-        prompt = "市场数据向量:\n"
-        prompt += f"特征维度: {len(features)}\n\n"
+        # 构建增强的数据描述
+        prompt = "=" * 80 + "\n"
+        prompt += "市场数据分析报告 (Phase 2增强版)\n"
+        prompt += "=" * 80 + "\n\n"
         
-        # 关键指标
-        prompt += "关键指标:\n"
+        # 特征维度信息
+        prompt += f"📊 特征维度: {len(features)}维\n"
+        prompt += f"   - 基础数据: 26维\n"
+        prompt += f"   - Phase1扩展: 9维 (订单簿+宏观+期货)\n"
+        prompt += f"   - Phase2技术分析: 12维 (MACD+RSI+BB+多周期+支撑阻力)\n\n"
+        
+        # === 价格信息 ===
+        prompt += "【💰 价格信息】\n"
+        feature_dict = dict(zip(names, features))
+        current_price = feature_dict.get('current_price', 0)
+        price_change = feature_dict.get('price_change_pct', 0)
+        volatility = feature_dict.get('volatility', 0)
+        
+        prompt += f"当前价格: ${current_price:,.2f}\n"
+        prompt += f"价格变化: {price_change:+.2f}% ({self._get_trend_emoji(price_change)})\n"
+        prompt += f"波动率: {volatility:.4f}\n"
+        
+        # 支撑阻力位
+        if support_resistance:
+            prompt += f"最近支撑: ${support_resistance.get('nearest_support', 0):,.2f} "
+            prompt += f"(距离 {support_resistance.get('support_distance', 0):.2f}%)\n"
+            prompt += f"最近阻力: ${support_resistance.get('nearest_resistance', 0):,.2f} "
+            prompt += f"(距离 {support_resistance.get('resistance_distance', 0):.2f}%)\n"
+        else:
+            support_dist = feature_dict.get('support_distance', 2.0)
+            resistance_dist = feature_dict.get('resistance_distance', 2.0)
+            prompt += f"支撑距离: {support_dist:.2f}%, 阻力距离: {resistance_dist:.2f}%\n"
+        
+        prompt += "\n"
+        
+        # === 技术指标 ===
+        prompt += "【📈 技术指标】\n"
+        if technical_indicators:
+            # MACD
+            macd_line = technical_indicators.get('macd_line', 0)
+            macd_signal = technical_indicators.get('macd_signal', 0)
+            macd_hist = technical_indicators.get('macd_hist', 0)
+            macd_signal_text = technical_indicators.get('macd_signal_text', 'neutral')
+            
+            prompt += f"MACD: {macd_line:.2f} (信号线: {macd_signal:.2f}, 柱: {macd_hist:.2f})\n"
+            prompt += f"      状态: {self._translate_signal(macd_signal_text)} "
+            prompt += f"{self._get_signal_emoji(macd_signal_text)}\n"
+            
+            # RSI
+            rsi = technical_indicators.get('rsi', 50)
+            rsi_signal = technical_indicators.get('rsi_signal', 'neutral')
+            prompt += f"RSI(14): {rsi:.1f} - {self._translate_rsi(rsi_signal)} "
+            prompt += f"{self._get_rsi_emoji(rsi)}\n"
+            
+            # 布林带
+            bb_position = technical_indicators.get('bb_position', 0.5)
+            bb_signal = technical_indicators.get('bb_signal', 'middle')
+            prompt += f"布林带位置: {bb_position:.2f} ({self._translate_bb(bb_signal)}) "
+            prompt += f"{self._get_bb_emoji(bb_position)}\n"
+            
+            # EMA
+            ema_trend = technical_indicators.get('ema_trend', 0)
+            prompt += f"EMA趋势: {self._translate_ema(ema_trend)} "
+            prompt += f"{self._get_trend_emoji(ema_trend)}\n"
+        else:
+            prompt += f"MACD: {feature_dict.get('macd_line', 0):.2f}, "
+            prompt += f"RSI: {feature_dict.get('rsi', 50):.1f}, "
+            prompt += f"BB位置: {feature_dict.get('bb_position', 0.5):.2f}\n"
+        
+        prompt += "\n"
+        
+        # === 多周期趋势 ===
+        prompt += "【⏱️ 多周期趋势分析】\n"
+        if multi_timeframe and 'timeframes' in multi_timeframe:
+            tf = multi_timeframe['timeframes']
+            
+            for period, label in [('1m', '1分钟'), ('15m', '15分钟'), 
+                                  ('1h', '1小时'), ('4h', '4小时')]:
+                trend = tf.get(period, {}).get('trend', 0)
+                rsi = tf.get(period, {}).get('rsi', 50)
+                prompt += f"{label:6s}: {self._translate_trend(trend)} "
+                prompt += f"{self._get_trend_emoji(trend)} (RSI:{rsi:.0f})\n"
+            
+            consistency = multi_timeframe.get('trend_consistency', 0)
+            overall = multi_timeframe.get('overall_trend', 0)
+            prompt += f"\n趋势一致性: {consistency:.0%} "
+            prompt += f"(主流方向: {self._translate_trend(overall)})\n"
+        else:
+            prompt += f"1分钟: {self._translate_trend(feature_dict.get('trend_1m', 0))}, "
+            prompt += f"15分钟: {self._translate_trend(feature_dict.get('trend_15m', 0))}, "
+            prompt += f"1小时: {self._translate_trend(feature_dict.get('trend_1h', 0))}, "
+            prompt += f"4小时: {self._translate_trend(feature_dict.get('trend_4h', 0))}\n"
+        
+        prompt += "\n"
+        
+        # === 市场情绪 ===
+        prompt += "【😊 市场情绪】\n"
+        fear_greed = feature_dict.get('fear_greed_index', 50)
+        prompt += f"恐惧贪婪指数: {fear_greed:.0f}/100 "
+        prompt += f"({self._get_fear_greed_label(fear_greed)})\n"
+        
+        news_sentiment = feature_dict.get('news_sentiment', 0)
+        news_count = feature_dict.get('news_count', 0)
+        prompt += f"新闻情绪: {self._translate_sentiment(news_sentiment)} "
+        prompt += f"(共{int(news_count)}条)\n"
+        
+        market_sentiment = feature_dict.get('market_sentiment_label', 0)
+        prompt += f"市场情绪: {self._translate_sentiment(market_sentiment)}\n"
+        
+        prompt += "\n"
+        
+        # === Gas费用 ===
+        prompt += "【⛽ Gas费用】\n"
+        eth_gas = feature_dict.get('eth_gas_gwei', 0)
+        btc_fee = feature_dict.get('btc_fee_sat', 0)
+        eth_ok = feature_dict.get('eth_tradeable', 0)
+        btc_ok = feature_dict.get('btc_tradeable', 0)
+        
+        prompt += f"ETH Gas: {eth_gas:.2f} Gwei {'✅' if eth_ok else '❌'}\n"
+        prompt += f"BTC Fee: {btc_fee:.0f} sat/vB {'✅' if btc_ok else '❌'}\n"
+        
+        prompt += "\n"
+        
+        # === 完整特征向量 ===
+        prompt += "【🔢 完整特征向量】\n"
         for i, (name, value) in enumerate(zip(names, features)):
             if isinstance(value, float):
-                prompt += f"[{i}] {name}: {value:.4f}\n"
+                prompt += f"[{i:2d}] {name:25s}: {value:>10.4f}\n"
             else:
-                prompt += f"[{i}] {name}: {value}\n"
+                prompt += f"[{i:2d}] {name:25s}: {value:>10}\n"
         
-        prompt += f"\n数据摘要: {summary}\n"
+        prompt += "\n"
+        prompt += "=" * 80 + "\n"
         
         return prompt
+    
+    def _get_trend_emoji(self, value):
+        """获取趋势表情"""
+        if value > 1:
+            return "🚀"
+        elif value > 0:
+            return "📈"
+        elif value < -1:
+            return "💥"
+        elif value < 0:
+            return "📉"
+        else:
+            return "➡️"
+    
+    def _get_signal_emoji(self, signal):
+        """获取信号表情"""
+        if signal == 'bullish':
+            return "🟢"
+        elif signal == 'bearish':
+            return "🔴"
+        else:
+            return "⚪"
+    
+    def _get_rsi_emoji(self, rsi):
+        """获取RSI表情"""
+        if rsi < 30:
+            return "🟢 超卖"
+        elif rsi > 70:
+            return "🔴 超买"
+        else:
+            return "⚪ 中性"
+    
+    def _get_bb_emoji(self, position):
+        """获取布林带表情"""
+        if position < 0.2:
+            return "⬇️"
+        elif position > 0.8:
+            return "⬆️"
+        else:
+            return "➡️"
+    
+    def _translate_signal(self, signal):
+        """翻译信号"""
+        mapping = {
+            'bullish': '看多',
+            'bearish': '看空',
+            'neutral': '中性'
+        }
+        return mapping.get(signal, signal)
+    
+    def _translate_rsi(self, signal):
+        """翻译RSI信号"""
+        mapping = {
+            'oversold': '超卖',
+            'overbought': '超买',
+            'neutral': '中性'
+        }
+        return mapping.get(signal, signal)
+    
+    def _translate_bb(self, signal):
+        """翻译布林带信号"""
+        mapping = {
+            'lower': '接近下轨',
+            'upper': '接近上轨',
+            'middle': '中轨区域'
+        }
+        return mapping.get(signal, signal)
+    
+    def _translate_ema(self, trend):
+        """翻译EMA趋势"""
+        if trend == 1:
+            return "金叉/多头"
+        elif trend == -1:
+            return "死叉/空头"
+        else:
+            return "震荡"
+    
+    def _translate_trend(self, trend):
+        """翻译趋势"""
+        if trend == 1:
+            return "上涨"
+        elif trend == -1:
+            return "下跌"
+        else:
+            return "震荡"
+    
+    def _translate_sentiment(self, sentiment):
+        """翻译情绪"""
+        if sentiment == 1:
+            return "看涨"
+        elif sentiment == -1:
+            return "看跌"
+        else:
+            return "中性"
+    
+    def _get_fear_greed_label(self, value):
+        """恐惧贪婪标签"""
+        if value < 25:
+            return "极度恐惧"
+        elif value < 45:
+            return "恐惧"
+        elif value < 55:
+            return "中性"
+        elif value < 75:
+            return "贪婪"
+        else:
+            return "极度贪婪"
     
     def to_numpy_array(self, integrated_data):
         """转换为numpy数组"""

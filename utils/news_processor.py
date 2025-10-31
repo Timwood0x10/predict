@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 try:
     from googletrans import Translator
     TRANSLATION_AVAILABLE = True
-except ImportError:
+except (ImportError, AttributeError) as e:
     TRANSLATION_AVAILABLE = False
-    logger.warning("googletrans未安装，翻译功能不可用")
+    logger.warning(f"googletrans不可用，翻译功能已禁用: {e}")
 
 
 class NewsProcessor:

@@ -113,7 +113,19 @@ class DataExporter:
             if gas_file:
                 exported_files['gas'] = gas_file
         
-        # 8. 创建汇总文件
+        # 8. 导出AI提示词 (Phase 2新增)
+        if market_data.get('integrated_data'):
+            prompt_file = self._export_ai_prompt(
+                base_name,
+                market_data['integrated_data'],
+                market_data.get('technical_indicators'),
+                market_data.get('multi_timeframe'),
+                market_data.get('support_resistance')
+            )
+            if prompt_file:
+                exported_files['ai_prompt'] = prompt_file
+        
+        # 9. 创建汇总文件
         summary_file = self._create_summary_file(
             base_name,
             symbol,
@@ -453,6 +465,57 @@ class DataExporter:
             
         except Exception as e:
             logger.error(f"导出Gas费数据失败: {e}")
+            return None
+    
+    def _export_ai_prompt(
+        self,
+        base_name: str,
+        integrated_data: Dict,
+        technical_indicators: Optional[Dict] = None,
+        multi_timeframe: Optional[Dict] = None,
+        support_resistance: Optional[Dict] = None
+    ) -> Optional[str]:
+        """
+        导出AI提示词 (Phase 2增强版)
+        
+        Args:
+            base_name: 文件基础名
+            integrated_data: 整合后的数据
+            technical_indicators: 技术指标
+            multi_timeframe: 多周期分析
+            support_resistance: 支撑阻力
+        
+        Returns:
+            文件路径或None
+        """
+        try:
+            from utils.data_integrator import DataIntegrator
+            
+            file_path = os.path.join(self.output_dir, f"{base_name}_AI_PROMPT.txt")
+            
+            # 使用DataIntegrator的format_for_ai_prompt方法生成增强提示词
+            integrator = DataIntegrator()
+            prompt_text = integrator.format_for_ai_prompt(
+                integrated_data,
+                technical_indicators=technical_indicators,
+                multi_timeframe=multi_timeframe,
+                support_resistance=support_resistance
+            )
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(prompt_text)
+            
+            # 同时保存到固定位置供后续使用
+            fixed_path = "data/ai_prompt.txt"
+            with open(fixed_path, 'w', encoding='utf-8') as f:
+                f.write(prompt_text)
+            
+            logger.info(f"✓ AI提示词已保存: {file_path}")
+            logger.info(f"✓ AI提示词已更新: {fixed_path}")
+            return file_path
+            
+        except Exception as e:
+            logger.error(f"导出AI提示词失败: {e}")
             return None
     
     def _create_summary_file(

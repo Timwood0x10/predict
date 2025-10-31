@@ -1,32 +1,90 @@
-市场数据向量:
-特征维度: 26
+================================================================================
+市场数据分析报告 (Phase 2增强版)
+================================================================================
 
-关键指标:
-[0] eth_gas_gwei: 0.1031
-[1] btc_fee_sat: 1
-[2] eth_tradeable: 1
-[3] btc_tradeable: 1
-[4] current_price: 113937.4300
-[5] price_change_pct: -0.0183
-[6] avg_volume: 37.8773
-[7] volatility: 0.0006
-[8] trend: 0
-[9] high_price: 114076.9100
-[10] low_price: 113761.7100
-[11] price_range_pct: 0.2771
-[12] news_score: 0
-[13] news_pos_ratio: 0
-[14] news_neg_ratio: 0
-[15] news_count: 0
-[16] news_sentiment: 0
-[17] market_sentiment_score: 0.0000
-[18] market_confidence: 0.0000
-[19] fear_greed_index: 50.0000
-[20] market_sentiment_label: 0
-[21] ai_avg_confidence: 0
-[22] ai_up_count: 0
-[23] ai_down_count: 0
-[24] ai_agreement_ratio: 0
-[25] ai_consensus: 0
+📊 特征维度: 47维
+   - 基础数据: 26维
+   - Phase1扩展: 9维 (订单簿+宏观+期货)
+   - Phase2技术分析: 12维 (MACD+RSI+BB+多周期+支撑阻力)
 
-数据摘要: {'gas_suitable': True, 'price': 113937.43, 'price_trend': 'down', 'sentiment': 'neutral', 'sentiment_score': 0.0}
+【💰 价格信息】
+当前价格: $3,846.16
+价格变化: +1.08% (🚀)
+波动率: 0.0041
+最近支撑: $3,840.37 (距离 0.15%)
+最近阻力: $3,860.79 (距离 0.38%)
+
+【📈 技术指标】
+MACD: -5.70 (信号线: -16.39, 柱: 10.69)
+      状态: 看多 🟢
+RSI(14): 51.0 - 中性 ⚪ 中性
+布林带位置: 0.72 (中轨区域) ➡️
+EMA趋势: 死叉/空头 📉
+
+【⏱️ 多周期趋势分析】
+1分钟   : 下跌 📉 (RSI:46)
+15分钟  : 上涨 📈 (RSI:54)
+1小时   : 上涨 📈 (RSI:51)
+4小时   : 下跌 📉 (RSI:42)
+
+趋势一致性: 50% (主流方向: 上涨)
+
+【😊 市场情绪】
+恐惧贪婪指数: 29/100 (恐惧)
+新闻情绪: 看涨 (共50条)
+市场情绪: 看跌
+
+【⛽ Gas费用】
+ETH Gas: 0.14 Gwei ✅
+BTC Fee: 1 sat/vB ✅
+
+【🔢 完整特征向量】
+[ 0] eth_gas_gwei             :     0.1360
+[ 1] btc_fee_sat              :          1
+[ 2] eth_tradeable            :          1
+[ 3] btc_tradeable            :          1
+[ 4] current_price            :  3846.1600
+[ 5] price_change_pct         :     1.0793
+[ 6] avg_volume               : 12615.3669
+[ 7] volatility               :     0.0041
+[ 8] trend                    :          1
+[ 9] high_price               :  3873.6800
+[10] low_price                :  3773.8000
+[11] price_range_pct          :     2.6467
+[12] news_score               :    27.2727
+[13] news_pos_ratio           :     0.2800
+[14] news_neg_ratio           :     0.1600
+[15] news_count               :         50
+[16] news_sentiment           :          1
+[17] market_sentiment_score   :   -42.0000
+[18] market_confidence        :    42.0000
+[19] fear_greed_index         :    29.0000
+[20] market_sentiment_label   :         -1
+[21] ai_avg_confidence        :    82.6319
+[22] ai_up_count              :          0
+[23] ai_down_count            :          3
+[24] ai_agreement_ratio       :     1.0000
+[25] ai_consensus             :         -1
+[26] orderbook_imbalance      :    -0.5651
+[27] support_strength         :    70.0000
+[28] resistance_strength      :    70.0000
+[29] dxy_change               :     0.0261
+[30] sp500_change             :    -0.9905
+[31] vix_level                :    16.2300
+[32] risk_appetite            :    68.8200
+[33] oi_change                :          0
+[34] funding_trend            :          0
+[35] macd_line                :    -5.7000
+[36] macd_signal              :   -16.3941
+[37] macd_hist                :    10.6941
+[38] rsi                      :    50.9901
+[39] bb_position              :     0.7214
+[40] ema_trend                :         -1
+[41] trend_1m                 :         -1
+[42] trend_15m                :          1
+[43] trend_1h                 :          1
+[44] trend_4h                 :         -1
+[45] support_distance         :     0.1500
+[46] resistance_distance      :     0.3800
+
+================================================================================

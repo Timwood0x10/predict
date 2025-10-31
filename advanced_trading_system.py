@@ -31,6 +31,12 @@ from ai_decision_layer import AIDecisionLayer
 from utils.orderbook_analyzer import OrderbookAnalyzer
 from utils.macro_indicators import MacroIndicators
 from utils.dynamic_weights import DynamicWeightManager
+# Phase 2 新增
+from utils.technical_indicators import TechnicalIndicators
+from utils.multi_timeframe_analyzer import MultiTimeframeAnalyzer
+from utils.support_resistance import SupportResistanceFinder
+# 数据导出
+from data_exporter import DataExporter
 
 # 配置日志
 logging.basicConfig(
@@ -90,6 +96,14 @@ class AdvancedTradingSystem:
         self.orderbook_analyzer = OrderbookAnalyzer(self.data_fetcher)
         self.macro_indicators = MacroIndicators()
         self.dynamic_weights = DynamicWeightManager()
+        
+        # Phase 2 新增模块
+        self.technical_indicators = TechnicalIndicators()
+        self.multi_timeframe = MultiTimeframeAnalyzer(self.data_fetcher)
+        self.support_resistance = SupportResistanceFinder()
+        
+        # 数据导出器
+        self.data_exporter = DataExporter()
         
         # 决策组件
         self.decision_engine = DecisionEngine(
@@ -286,8 +300,8 @@ class AdvancedTradingSystem:
             logger.warning(f"   ⚠️ 失败: {e}")
             all_data['macro_data'] = None
         
-        # 9. 期货数据（新增）
-        logger.info("\n[9/9] 获取期货数据...")
+        # 9. 期货数据
+        logger.info("\n[9/12] 获取期货数据...")
         try:
             futures_data = self.data_fetcher.get_futures_open_interest(symbol)
             all_data['futures_data'] = futures_data
@@ -295,6 +309,43 @@ class AdvancedTradingSystem:
         except Exception as e:
             logger.warning(f"   ⚠️ 失败: {e}")
             all_data['futures_data'] = None
+        
+        # 10. 技术指标（Phase 2新增）
+        logger.info("\n[10/12] 计算技术指标...")
+        try:
+            if all_data.get('kline_df') is not None:
+                tech_indicators = self.technical_indicators.calculate_all(all_data['kline_df'])
+                all_data['technical_indicators'] = tech_indicators
+                logger.info(f"   ✓ RSI:{tech_indicators['rsi']:.0f} MACD:{tech_indicators['macd_signal_text']}")
+            else:
+                all_data['technical_indicators'] = None
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['technical_indicators'] = None
+        
+        # 11. 多周期分析（Phase 2新增）
+        logger.info("\n[11/12] 多周期趋势分析...")
+        try:
+            multi_tf = self.multi_timeframe.analyze_all_timeframes(symbol)
+            all_data['multi_timeframe'] = multi_tf
+            logger.info(f"   ✓ 一致性:{multi_tf['trend_consistency']:.0%} 总趋势:{multi_tf['overall_trend']}")
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['multi_timeframe'] = None
+        
+        # 12. 支撑阻力（Phase 2新增）
+        logger.info("\n[12/12] 识别支撑阻力位...")
+        try:
+            if all_data.get('kline_df') is not None:
+                current_price = all_data['kline_df']['close'].iloc[-1]
+                sr_levels = self.support_resistance.find_levels(all_data['kline_df'], current_price)
+                all_data['support_resistance'] = sr_levels
+                logger.info(f"   ✓ 支撑:{sr_levels['support_distance']:.1f}% 阻力:{sr_levels['resistance_distance']:.1f}%")
+            else:
+                all_data['support_resistance'] = None
+        except Exception as e:
+            logger.warning(f"   ⚠️ 失败: {e}")
+            all_data['support_resistance'] = None
         
         return all_data
     
@@ -396,8 +447,14 @@ class AdvancedTradingSystem:
                 hours=12,
                 orderbook_data=market_data.get('orderbook_data'),
                 macro_data=market_data.get('macro_data'),
-                futures_data=market_data.get('futures_data')
+                futures_data=market_data.get('futures_data'),
+                technical_indicators=market_data.get('technical_indicators'),
+                multi_timeframe=market_data.get('multi_timeframe'),
+                support_resistance=market_data.get('support_resistance')
             )
+            
+            # 保存integrated_data到market_data中，供后续导出使用
+            market_data['integrated_data'] = integrated_data
             
             features = integrated_data['features']
             current_price = features[4] if len(features) > 4 else 0
@@ -507,7 +564,8 @@ class AdvancedTradingSystem:
                 final_confidence = 50
                 final_reason = "⚠️ 信号不一致"
         
-        return {
+        # 准备返回结果
+        analysis_result = {
             'final_decision': {
                 'action': final_action,
                 'confidence': final_confidence,
@@ -519,6 +577,19 @@ class AdvancedTradingSystem:
             'engine_decision': engine_decision,
             'current_price': current_price
         }
+        
+        # 导出所有数据 (Phase 2新增)
+        try:
+            exported_files = self.data_exporter.export_all_data(
+                symbol=symbol,
+                market_data=market_data,
+                analysis_result=analysis_result
+            )
+            logger.info(f"\n✅ 数据已导出 ({len(exported_files)} 个文件)")
+        except Exception as e:
+            logger.warning(f"⚠️ 数据导出失败: {e}")
+        
+        return analysis_result
     
     def _generate_market_diagnosis(self, engine_signals, ai_decision):
         """

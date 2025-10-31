@@ -14,6 +14,18 @@ python-dotenv>=1.0.0
 google-genai>=0.2.0
 openai>=1.0.0
 
+# 翻译库（可选，如果安装失败可以跳过）
+# googletrans==4.0.0rc1
+
 # 可选: 数据可视化
 matplotlib>=3.7.0
 seaborn>=0.12.0
+
+# Phase 2 技术指标库 (可选，系统有fallback机制)
+# TA-Lib提供更准确快速的技术指标计算
+# 如果安装失败，系统会自动使用pandas实现（性能略低但功能完整）
+# 安装方法:
+#   macOS:   brew install ta-lib && pip install TA-Lib
+#   Ubuntu:  sudo apt-get install ta-lib && pip install TA-Lib
+#   Windows: 下载whl文件 https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib
+TA-Lib>=0.4.0
