@@ -1,0 +1,2 @@
+entry_time,entry_price,exit_time,exit_price,action,position_size,pnl,pnl_percent,exit_reason,capital_after
+2025-10-29 13:00:00,112873.07,2025-10-29 23:00:00,110615.6086,LONG,0.08859509181419448,-200.00000000000003,-2.0000000000000004,止损,800.0

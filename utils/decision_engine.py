@@ -28,32 +28,53 @@ class DecisionEngine:
     Layer 4: 仓位计算（风险控制）
     """
     
-    def __init__(self, account_balance: float = 10000, risk_percent: float = 0.015):
+    def __init__(self, account_balance: float = 10000, risk_percent: float = 0.015, backtest_mode: bool = False):
         """
         初始化决策引擎
         
         Args:
             account_balance: 账户余额（USD）
             risk_percent: 单笔风险比例（默认1.5%）
+            backtest_mode: 回测模式（回测时放宽数据完整性检查）
         """
         self.account_balance = account_balance
         self.risk_percent = risk_percent
         self.existing_positions = []  # 当前持仓列表
+        self.backtest_mode = backtest_mode
         
         # 权重配置
-        self.weights = {
-            'news': 0.30,      # 新闻信号 30%
-            'price': 0.25,     # 价格信号 25%
-            'sentiment': 0.25, # 情绪信号 25%
-            'ai': 0.20         # AI信号 20%
-        }
+        if backtest_mode:
+            # 回测模式：价格和技术指标为主
+            self.weights = {
+                'news': 0.10,      # 新闻信号 10% (回测时数据不足)
+                'price': 0.50,     # 价格信号 50% (主要依据)
+                'sentiment': 0.30, # 情绪信号 30%
+                'ai': 0.10         # AI信号 10% (回测时数据不足)
+            }
+        else:
+            # 真实交易模式：多维度平衡
+            self.weights = {
+                'news': 0.30,      # 新闻信号 30%
+                'price': 0.25,     # 价格信号 25%
+                'sentiment': 0.25, # 情绪信号 25%
+                'ai': 0.20         # AI信号 20%
+            }
         
         # 决策阈值（保守）
-        self.thresholds = {
-            'buy_score': 75,        # 买入分数阈值
-            'sell_score': 25,       # 卖出分数阈值
-            'min_consistency': 0.80 # 最低一致性要求
-        }
+        if backtest_mode:
+            # 回测模式：降低阈值（因为缺少新闻和AI数据）
+            self.thresholds = {
+                'buy_score': 60,        # 买入分数阈值
+                'sell_score': 40,       # 卖出分数阈值
+                'min_consistency': 0.70 # 最低一致性要求
+            }
+        else:
+            # 真实交易模式：严格阈值
+            self.thresholds = {
+                'buy_score': 75,        # 买入分数阈值
+                'sell_score': 25,       # 卖出分数阈值
+                'min_consistency': 0.80 # 最低一致性要求
+            }
     
     # ==================== Layer 1: 安全检查 ====================
     
@@ -76,13 +97,19 @@ class DecisionEngine:
         if not checks['gas']:
             return False, f"Gas费用过高 (ETH: {eth_gas:.2f} Gwei, BTC: {btc_fee} sat/vB)"
         
-        # 2. 数据完整性检查
+        # 2. 数据完整性检查（回测模式下跳过）
         news_count = features[15] if len(features) > 15 else 0
         ai_up = features[22] if len(features) > 22 else 0
         ai_down = features[23] if len(features) > 23 else 0
-        checks['data'] = news_count >= 8 and (ai_up + ai_down) > 0
-        if not checks['data']:
-            return False, f"数据不足 (新闻: {news_count}条, AI预测: {ai_up + ai_down}个)"
+        
+        if self.backtest_mode:
+            # 回测模式：只需要有K线数据即可
+            checks['data'] = True
+        else:
+            # 真实交易模式：需要完整数据
+            checks['data'] = news_count >= 8 and (ai_up + ai_down) > 0
+            if not checks['data']:
+                return False, f"数据不足 (新闻: {news_count}条, AI预测: {ai_up + ai_down}个)"
         
         # 3. 市场状态检查
         fear_greed = features[19] if len(features) > 19 else 50

@@ -14,6 +14,8 @@ import logging
 
 from utils.data_fetcher import BinanceDataFetcher
 from advanced_trading_system import AdvancedTradingSystem
+from real_trading_decision import RealTradingDecisionSystem
+from utils.dynamic_weights import DynamicWeightManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 class BacktestEngine:
     """回测引擎 - 测试策略在历史数据上的表现"""
     
-    def __init__(self, initial_capital: float = 1000, leverage: int = 10, risk_percent: float = 2.0):
+    def __init__(self, initial_capital: float = 1000, leverage: int = 10, risk_percent: float = 2.0, use_full_system: bool = False):
         """
         初始化回测引擎
         
@@ -33,14 +35,29 @@ class BacktestEngine:
             initial_capital: 初始资金
             leverage: 杠杆倍数
             risk_percent: 风险比例
+            use_full_system: 是否使用完整决策系统（包括动态权重、AI决策等）
         """
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
         self.leverage = leverage
         self.risk_percent = risk_percent
+        self.use_full_system = use_full_system
         
         self.trades = []  # 交易记录
         self.data_fetcher = BinanceDataFetcher()
+        
+        # 如果使用完整系统，初始化决策系统和动态权重
+        if use_full_system:
+            self.decision_system = RealTradingDecisionSystem(
+                account_balance=initial_capital,
+                risk_percent=risk_percent / 100  # 转换为小数
+            )
+            self.weight_manager = DynamicWeightManager()
+            logger.info("🚀 使用完整决策系统（含动态权重）")
+        else:
+            self.decision_system = None
+            self.weight_manager = None
+            logger.info("📊 使用简单MA交叉策略")
         
         logger.info("=" * 80)
         logger.info("📊 回测引擎初始化")
@@ -223,7 +240,8 @@ class BacktestEngine:
         symbol: str,
         historical_data: pd.DataFrame,
         stop_loss_pct: float = 2.0,
-        save_data: bool = True
+        save_data: bool = True,
+        interval: str = '1h'
     ) -> Dict:
         """
         运行回测
@@ -251,8 +269,22 @@ class BacktestEngine:
         trades = []
         current_capital = self.initial_capital
         
-        # 每隔一定周期生成一次信号（避免过于频繁）
-        signal_interval = max(1, len(historical_data) // 20)  # 最多20个信号
+        # 固定交易频率：每12小时一次决策
+        # 根据K线间隔确定决策频率（一天两次）
+        interval_hours_map = {
+            '1m': 1/60, '5m': 5/60, '15m': 15/60, '30m': 0.5,
+            '1h': 1, '2h': 2, '4h': 4, '6h': 6, '12h': 12, '1d': 24
+        }
+        
+        # 获取当前K线间隔对应的小时数
+        current_interval_hours = interval_hours_map.get(interval, 1)
+        
+        # 每12小时决策一次（一天两次）
+        signal_interval = max(1, int(12 / current_interval_hours))
+        
+        logger.info(f"📅 回测周期: {len(historical_data)}根K线，间隔{interval}")
+        logger.info(f"⏰ 交易频率: 每{signal_interval}根K线决策一次（每12小时）")
+        logger.info(f"📊 预计交易次数: 约{(len(historical_data) // signal_interval)}次")
         
         for i in range(0, len(historical_data) - 10, signal_interval):
             try:
@@ -263,36 +295,62 @@ class BacktestEngine:
                 logger.info(f"\n检查信号点 {i+1}/{len(historical_data)} - {timestamp}")
                 logger.info(f"价格: ${current_price:,.2f}")
                 
-                # 这里简化处理：因为完整分析需要实时数据
-                # 在实际回测中，我们使用简单的技术指标生成信号
-                signal = self._generate_simple_signal(historical_data.iloc[:i+1])
+                # 生成交易信号
+                if self.use_full_system:
+                    # 使用完整决策系统
+                    signal = self._generate_full_system_signal(symbol, historical_data.iloc[:i+1])
+                else:
+                    # 使用简单的MA交叉策略
+                    signal = self._generate_simple_signal(historical_data.iloc[:i+1])
                 
                 if signal['action'] in ['LONG', 'SHORT']:
                     logger.info(f"✓ 生成{signal['action']}信号，置信度: {signal['confidence']:.0f}%")
                     
-                    # 计算仓位
-                    margin_required = (current_capital * self.risk_percent / 100) / (stop_loss_pct / 100)
-                    position_value = margin_required * self.leverage
+                    # 计算仓位（修正后的逻辑）
+                    # 风险金额 = 账户余额 * 风险比例
+                    risk_amount = current_capital * (self.risk_percent / 100)
+                    
+                    # 仓位价值 = 风险金额 / 止损比例 * 杠杆
+                    # 例如：风险20 USDT，止损2%，杠杆10x
+                    # 仓位价值 = 20 / 0.02 * 10 = 10,000 USDT
+                    position_value = (risk_amount / (stop_loss_pct / 100)) * self.leverage
+                    
+                    # 限制最大仓位不超过账户余额 * 杠杆
+                    max_position = current_capital * self.leverage
+                    position_value = min(position_value, max_position)
+                    
+                    # 计算持仓数量
                     position_size = position_value / current_price
                     
-                    # 计算止损止盈
+                    logger.info(f"  风险金额: {risk_amount:.2f} USDT")
+                    logger.info(f"  仓位价值: {position_value:.2f} USDT")
+                    logger.info(f"  持仓数量: {position_size:.6f}")
+                    
+                    # 计算止损止盈（更合理的比例）
                     if signal['action'] == 'LONG':
                         stop_loss = current_price * (1 - stop_loss_pct / 100)
                         take_profit = [
-                            current_price * 1.04,
-                            current_price * 1.07,
-                            current_price * 1.12
+                            current_price * (1 + stop_loss_pct * 1.0 / 100),   # 1:1 盈亏比
+                            current_price * (1 + stop_loss_pct * 2.0 / 100),   # 1:2 盈亏比
+                            current_price * (1 + stop_loss_pct * 3.0 / 100)    # 1:3 盈亏比
                         ]
                     else:
                         stop_loss = current_price * (1 + stop_loss_pct / 100)
                         take_profit = [
-                            current_price * 0.96,
-                            current_price * 0.93,
-                            current_price * 0.88
+                            current_price * (1 - stop_loss_pct * 1.0 / 100),   # 1:1 盈亏比
+                            current_price * (1 - stop_loss_pct * 2.0 / 100),   # 1:2 盈亏比
+                            current_price * (1 - stop_loss_pct * 3.0 / 100)    # 1:3 盈亏比
                         ]
                     
-                    # 模拟交易
-                    future_data = historical_data.iloc[i+1:i+11]
+                    logger.info(f"  止损: ${stop_loss:,.2f} ({stop_loss_pct:.1f}%)")
+                    logger.info(f"  止盈1: ${take_profit[0]:,.2f} ({stop_loss_pct*1:.1f}%)")
+                    logger.info(f"  止盈2: ${take_profit[1]:,.2f} ({stop_loss_pct*2:.1f}%)")
+                    logger.info(f"  止盈3: ${take_profit[2]:,.2f} ({stop_loss_pct*3:.1f}%)")
+                    
+                    # 模拟交易（增加观察时间窗口）
+                    # 使用更长的时间窗口，最多50根K线或到数据末尾
+                    future_end = min(i + 51, len(historical_data))
+                    future_data = historical_data.iloc[i+1:future_end]
                     trade_result = self.simulate_trade(
                         entry_price=current_price,
                         action=signal['action'],
@@ -326,29 +384,243 @@ class BacktestEngine:
         
         return stats
     
+    def _generate_full_system_signal(self, symbol: str, data: pd.DataFrame) -> Dict:
+        """
+        使用完整决策系统生成交易信号（使用真实的决策引擎和AI层）
+        
+        这是真正的回测：使用历史K线数据模拟当时的决策过程
+        """
+        try:
+            if len(data) < 20:
+                return {'action': 'HOLD', 'confidence': 0}
+            
+            # 1. 从历史数据构建市场数据快照（模拟当时的市场状态）
+            market_snapshot = self._build_market_snapshot(symbol, data)
+            
+            # 2. 使用真实决策系统的核心逻辑
+            from utils.data_integrator import DataIntegrator
+            from utils.decision_engine import DecisionEngine
+            
+            integrator = DataIntegrator()
+            decision_engine = DecisionEngine(
+                account_balance=self.current_capital,
+                risk_percent=self.risk_percent / 100,
+                backtest_mode=True  # 回测模式，放宽数据完整性检查
+            )
+            
+            # 3. 整合特征（使用历史数据）
+            # 从market_snapshot中提取各种数据
+            kline_df = None
+            if 'klines' in market_snapshot and market_snapshot['klines']:
+                import pandas as pd
+                kline_df = pd.DataFrame(market_snapshot['klines'])
+            
+            integrated = integrator.integrate_all(
+                gas_data=None,  # 回测时无Gas数据
+                kline_df=kline_df,
+                news_sentiment=market_snapshot.get('news_sentiment'),
+                market_sentiment=None,
+                ai_predictions=None,
+                hours=12,
+                orderbook_data=market_snapshot.get('orderbook'),
+                macro_data=None,
+                futures_data=market_snapshot.get('futures_data'),
+                technical_indicators=None,
+                multi_timeframe=None,
+                support_resistance=None
+            )
+            features = integrated['features']
+            
+            # 4. 应用动态权重
+            market_state = self.weight_manager.get_market_state(features)
+            weights = self.weight_manager.get_weights(market_state)
+            adjusted_weights = self.weight_manager.adjust_weights_by_dimensions(weights, features)
+            
+            # 5. 使用决策引擎进行分析
+            decision_result = decision_engine.analyze(features=features, news_data=None)
+            
+            # 6. 提取信号和置信度
+            decision_info = decision_result.get('decision', {})
+            action = decision_info.get('action', 'HOLD')
+            confidence = decision_info.get('confidence', 50)
+            
+            # 将BUY/SELL转换为LONG/SHORT（统一格式）
+            if action == 'BUY':
+                action = 'LONG'
+            elif action == 'SELL':
+                action = 'SHORT'
+            else:
+                action = 'HOLD'
+            
+            # 记录决策信息
+            logger.info(f"  市场状态: {market_state}")
+            logger.info(f"  动态权重: sentiment={weights.get('sentiment', 1.0):.1f}x, "
+                       f"orderbook={weights.get('orderbook', 1.0):.1f}x, "
+                       f"macro={weights.get('macro', 1.0):.1f}x")
+            logger.info(f"  决策置信度: {confidence:.1f}%")
+            
+            return {
+                'action': action,
+                'confidence': confidence,
+                'market_state': market_state,
+                'weights': adjusted_weights,
+                'decision': decision_result
+            }
+            
+        except Exception as e:
+            logger.warning(f"完整系统决策失败，使用备用策略: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._generate_simple_signal(data)
+    
+    def _build_market_snapshot(self, symbol: str, data: pd.DataFrame) -> Dict:
+        """
+        从历史K线数据构建市场快照（模拟当时的市场状态）
+        """
+        latest = data.iloc[-1]
+        prev = data.iloc[-2] if len(data) > 1 else latest
+        
+        # 构建类似real_trading_decision中的market_data结构
+        market_snapshot = {
+            'symbol': symbol,
+            'current_price': float(latest['close']),
+            'klines': data.tail(100).to_dict('records'),  # 最近100根K线
+            'market_data': {
+                'price': float(latest['close']),
+                'volume_24h': float(data.tail(24)['volume'].sum()) if len(data) >= 24 else float(data['volume'].sum()),
+                'price_change_24h': ((float(latest['close']) - float(data.iloc[-24]['close'])) / float(data.iloc[-24]['close'])) if len(data) >= 24 else 0,
+                'high_24h': float(data.tail(24)['high'].max()) if len(data) >= 24 else float(latest['high']),
+                'low_24h': float(data.tail(24)['low'].min()) if len(data) >= 24 else float(latest['low']),
+            },
+            'orderbook': None,  # 回测时无订单簿数据
+            'news_list': [],    # 回测时无新闻数据
+            'news_sentiment': None,
+            'polymarket_data': None,
+            'futures_data': None,
+            'timestamp': latest.name if hasattr(latest, 'name') else None
+        }
+        
+        return market_snapshot
+    
+    def _extract_features_from_data(self, data: pd.DataFrame) -> list:
+        """从历史数据中提取特征向量（用于动态权重）"""
+        features = [0] * 35  # 35维特征向量
+        
+        if len(data) < 2:
+            return features
+        
+        try:
+            # 价格变化
+            price_change = (data.iloc[-1]['close'] - data.iloc[-2]['close']) / data.iloc[-2]['close']
+            features[2] = price_change  # 价格变化率
+            
+            # 波动率
+            if len(data) >= 20:
+                returns = data['close'].pct_change().dropna()
+                volatility = returns.std()
+                features[7] = volatility  # 波动率
+            
+            # 成交量变化
+            if len(data) >= 2:
+                volume_change = (data.iloc[-1]['volume'] - data.iloc[-2]['volume']) / data.iloc[-2]['volume']
+                features[8] = volume_change
+            
+            # RSI（简化计算）
+            if len(data) >= 14:
+                delta = data['close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                features[10] = rsi.iloc[-1] / 100 if not pd.isna(rsi.iloc[-1]) else 0.5
+            
+            # 订单簿平衡（模拟）
+            features[26] = 0.5  # 回测时无法获取真实订单簿，使用中性值
+            
+            # VIX（使用波动率代替）
+            features[31] = min(volatility * 1000, 100) if len(data) >= 20 else 20
+            
+        except Exception as e:
+            logger.warning(f"特征提取失败: {e}")
+        
+        return features
+    
     def _generate_simple_signal(self, data: pd.DataFrame) -> Dict:
         """
         生成简单的交易信号（基于技术指标）
         
-        使用简单的MA交叉策略
+        使用改进的多指标策略
         """
         if len(data) < 20:
             return {'action': 'HOLD', 'confidence': 0}
         
-        # 计算移动平均线
+        # 计算技术指标
         data_copy = data.copy()
+        
+        # 移动平均线
         data_copy['ma_short'] = data_copy['close'].rolling(window=7).mean()
         data_copy['ma_long'] = data_copy['close'].rolling(window=20).mean()
+        
+        # RSI指标
+        delta = data_copy['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        data_copy['rsi'] = 100 - (100 / (1 + rs))
+        
+        # 布林带
+        data_copy['bb_middle'] = data_copy['close'].rolling(window=20).mean()
+        bb_std = data_copy['close'].rolling(window=20).std()
+        data_copy['bb_upper'] = data_copy['bb_middle'] + (bb_std * 2)
+        data_copy['bb_lower'] = data_copy['bb_middle'] - (bb_std * 2)
         
         # 获取最近的值
         latest = data_copy.iloc[-1]
         prev = data_copy.iloc[-2]
         
-        # MA交叉策略
+        # 综合信号评分
+        long_score = 0
+        short_score = 0
+        
+        # 1. MA趋势 (40分)
+        if latest['ma_short'] > latest['ma_long']:
+            long_score += 40
+        else:
+            short_score += 40
+        
+        # 2. RSI超买超卖 (30分)
+        if latest['rsi'] < 30:  # 超卖，看涨
+            long_score += 30
+        elif latest['rsi'] > 70:  # 超买，看跌
+            short_score += 30
+        elif latest['rsi'] < 45:  # 偏低
+            long_score += 15
+        elif latest['rsi'] > 55:  # 偏高
+            short_score += 15
+        
+        # 3. 布林带位置 (30分)
+        if latest['close'] < latest['bb_lower']:  # 触及下轨，看涨
+            long_score += 30
+        elif latest['close'] > latest['bb_upper']:  # 触及上轨，看跌
+            short_score += 30
+        elif latest['close'] < latest['bb_middle']:  # 低于中轨
+            long_score += 15
+        elif latest['close'] > latest['bb_middle']:  # 高于中轨
+            short_score += 15
+        
+        # 4. MA交叉 (加分项)
         if prev['ma_short'] <= prev['ma_long'] and latest['ma_short'] > latest['ma_long']:
-            return {'action': 'LONG', 'confidence': 70}
+            long_score += 20  # 金叉
         elif prev['ma_short'] >= prev['ma_long'] and latest['ma_short'] < latest['ma_long']:
-            return {'action': 'SHORT', 'confidence': 70}
+            short_score += 20  # 死叉
+        
+        # 根据得分决定信号
+        if long_score >= 70 and long_score > short_score:
+            confidence = min(long_score, 90)
+            return {'action': 'LONG', 'confidence': confidence}
+        elif short_score >= 70 and short_score > long_score:
+            confidence = min(short_score, 90)
+            return {'action': 'SHORT', 'confidence': confidence}
         else:
             return {'action': 'HOLD', 'confidence': 50}
     
@@ -427,16 +699,34 @@ class BacktestEngine:
             f.write("=" * 80 + "\n")
             f.write(f"回测统计报告 - {symbol}\n")
             f.write("=" * 80 + "\n\n")
+            
+            # 回测参数
+            f.write("【回测参数】\n")
+            f.write(f"回测周期: {len(historical_data)}根K线\n")
+            f.write(f"数据时间范围: {historical_data.iloc[0]['open_time']} 至 {historical_data.iloc[-1]['open_time']}\n")
+            f.write(f"交易频率: 每12小时决策一次（一天两次）\n")
             f.write(f"初始资金: {self.initial_capital:.2f} USDT\n")
+            f.write(f"杠杆倍数: {self.leverage}x\n")
+            f.write(f"风险比例: {self.risk_percent}%\n\n")
+            
+            # 回测结果
+            f.write("【回测结果】\n")
             f.write(f"最终资金: {stats['final_capital']:.2f} USDT\n")
-            f.write(f"总盈亏: {stats['total_pnl']:.2f} USDT\n")
-            f.write(f"总收益率: {stats['total_return']:.2f}%\n\n")
+            f.write(f"总盈亏: {stats['total_pnl']:+.2f} USDT\n")
+            f.write(f"总收益率: {stats['total_return']:+.2f}%\n\n")
+            
+            # 交易统计
+            f.write("【交易统计】\n")
             f.write(f"交易次数: {stats['total_trades']}\n")
-            f.write(f"盈利次数: {stats['winning_trades']}\n")
-            f.write(f"亏损次数: {stats['losing_trades']}\n")
+            f.write(f"盈利次数: {stats['winning_trades']} 🟢\n")
+            f.write(f"亏损次数: {stats['losing_trades']} 🔴\n")
             f.write(f"胜率: {stats['win_rate']:.2f}%\n\n")
+            
+            # 风险指标
+            f.write("【风险指标】\n")
             f.write(f"平均盈利: {stats['avg_win']:.2f} USDT\n")
             f.write(f"平均亏损: {stats['avg_loss']:.2f} USDT\n")
+            f.write(f"盈亏比: {abs(stats['avg_win']/stats['avg_loss']):.2f}:1\n" if stats['avg_loss'] != 0 else "盈亏比: N/A\n")
             f.write(f"最大回撤: {stats['max_drawdown']:.2f}%\n")
             f.write(f"夏普比率: {stats['sharpe_ratio']:.2f}\n")
         
@@ -445,22 +735,31 @@ class BacktestEngine:
     def print_results(self, stats: Dict):
         """打印回测结果"""
         print("\n" + "=" * 80)
-        print("📊 回测结果")
+        print("📊 回测结果汇总")
         print("=" * 80)
-        print(f"初始资金: {self.initial_capital:.2f} USDT")
-        print(f"最终资金: {stats['final_capital']:.2f} USDT")
-        print(f"总盈亏: {stats['total_pnl']:+.2f} USDT")
-        print(f"总收益率: {stats['total_return']:+.2f}%")
         print()
-        print(f"交易次数: {stats['total_trades']}")
-        print(f"盈利次数: {stats['winning_trades']} 🟢")
-        print(f"亏损次数: {stats['losing_trades']} 🔴")
-        print(f"胜率: {stats['win_rate']:.2f}%")
+        print("【资金表现】")
+        print(f"  初始资金: ${self.initial_capital:,.2f} USDT")
+        print(f"  最终资金: ${stats['final_capital']:,.2f} USDT")
+        print(f"  总盈亏: {stats['total_pnl']:+.2f} USDT")
+        pnl_color = "🟢" if stats['total_return'] > 0 else "🔴"
+        print(f"  总收益率: {stats['total_return']:+.2f}% {pnl_color}")
         print()
-        print(f"平均盈利: {stats['avg_win']:.2f} USDT")
-        print(f"平均亏损: {stats['avg_loss']:.2f} USDT")
-        print(f"最大回撤: {stats['max_drawdown']:.2f}%")
-        print(f"夏普比率: {stats['sharpe_ratio']:.2f}")
+        print("【交易统计】")
+        print(f"  交易次数: {stats['total_trades']}")
+        print(f"  盈利次数: {stats['winning_trades']} 🟢")
+        print(f"  亏损次数: {stats['losing_trades']} 🔴")
+        win_rate_color = "🟢" if stats['win_rate'] >= 50 else "🔴"
+        print(f"  胜率: {stats['win_rate']:.2f}% {win_rate_color}")
+        print()
+        print("【风险指标】")
+        print(f"  平均盈利: +{stats['avg_win']:.2f} USDT")
+        print(f"  平均亏损: {stats['avg_loss']:.2f} USDT")
+        if stats['avg_loss'] != 0:
+            profit_loss_ratio = abs(stats['avg_win'] / stats['avg_loss'])
+            print(f"  盈亏比: {profit_loss_ratio:.2f}:1")
+        print(f"  最大回撤: {stats['max_drawdown']:.2f}%")
+        print(f"  夏普比率: {stats['sharpe_ratio']:.2f}")
         print("=" * 80)
 
 
@@ -476,6 +775,7 @@ def main():
     parser.add_argument('--symbol', type=str, default='BTCUSDT', help='交易对')
     parser.add_argument('--days', type=int, default=7, help='回测天数')
     parser.add_argument('--interval', type=str, default='1h', help='K线间隔')
+    parser.add_argument('--full-system', action='store_true', help='使用完整决策系统（含动态权重）')
     
     args = parser.parse_args()
     
@@ -483,7 +783,8 @@ def main():
     engine = BacktestEngine(
         initial_capital=args.capital,
         leverage=args.leverage,
-        risk_percent=args.risk
+        risk_percent=args.risk,
+        use_full_system=args.full_system
     )
     
     # 获取历史数据
@@ -501,7 +802,8 @@ def main():
     stats = engine.run_backtest(
         symbol=args.symbol,
         historical_data=historical_data,
-        stop_loss_pct=args.stop_loss
+        stop_loss_pct=args.stop_loss,
+        interval=args.interval
     )
     
     # 打印结果

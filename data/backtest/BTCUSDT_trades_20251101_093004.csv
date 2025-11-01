@@ -1,0 +1,2 @@
+entry_time,entry_price,exit_time,exit_price,action,position_size,pnl,pnl_percent,exit_reason,capital_after
+2025-10-26 02:00:00,111448.85,2025-10-26 12:00:00,113575.05,SHORT,0.08972726053252231,-190.77810134424868,-1.9077810134424869,时间到期,809.2218986557514

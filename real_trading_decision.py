@@ -22,6 +22,7 @@ from utils.financial_news import FinancialNewsAggregator
 from utils.sentiment_analyzer import MarketSentimentAnalyzer
 from utils.data_integrator import DataIntegrator
 from utils.decision_engine import DecisionEngine
+from utils.dynamic_weights import DynamicWeightManager
 from ai_decision_layer import AIDecisionLayer
 
 # 配置日志
@@ -66,10 +67,12 @@ class RealTradingDecisionSystem:
             account_balance=account_balance,
             risk_percent=risk_percent
         )
+        self.weight_manager = DynamicWeightManager()  # 动态权重管理器
         
         logger.info("✅ 所有组件初始化完成")
         logger.info(f"   账户余额: ${account_balance:,.2f}")
         logger.info(f"   单笔风险: {risk_percent*100:.2f}%")
+        logger.info(f"   动态权重: 已启用")
     
     def fetch_market_data(self, symbol="BTCUSDT", hours=12):
         """
@@ -276,6 +279,30 @@ class RealTradingDecisionSystem:
                 'avg_volume': features[6] if len(features) > 6 else 0
             }
             
+            # 步骤2.5: 应用动态权重调整
+            logger.info("\n" + "=" * 80)
+            logger.info("⚖️ 动态权重调整")
+            logger.info("=" * 80)
+            
+            # 识别市场状态
+            market_state = self.weight_manager.get_market_state(features)
+            logger.info(f"   市场状态: {market_state}")
+            
+            # 获取推荐权重
+            recommended_weights = self.weight_manager.get_weights(market_state)
+            logger.info(f"   推荐权重: {recommended_weights}")
+            
+            # 根据特征微调权重
+            adjusted_weights = self.weight_manager.adjust_weights_by_dimensions(
+                recommended_weights, 
+                features
+            )
+            logger.info(f"   调整后权重: {adjusted_weights}")
+            
+            # 将调整后的权重存储到元数据中供决策使用
+            metadata['dynamic_weights'] = adjusted_weights
+            metadata['market_state'] = market_state
+            
             # 步骤3: AI决策层分析
             logger.info("\n" + "=" * 80)
             logger.info("🤖 AI决策层分析")
@@ -299,6 +326,9 @@ class RealTradingDecisionSystem:
             
             # 步骤5: 综合决策
             final_decision = self._merge_decisions(ai_decision, engine_decision, current_price)
+            
+            # 添加元数据到最终决策
+            final_decision['metadata'] = metadata
             
             # 计算耗时
             elapsed = (datetime.now() - start_time).total_seconds()
@@ -503,6 +533,19 @@ class RealTradingDecisionSystem:
         # 当前市场状态
         print("\n【市场状态】")
         print(f"  当前价格: ${result['current_price']:,.2f}")
+        
+        # 显示动态权重信息
+        if result.get('metadata', {}).get('market_state'):
+            market_state = result['metadata']['market_state']
+            state_name = {'bull': '牛市', 'bear': '熊市', 'sideways': '震荡'}.get(market_state, market_state)
+            print(f"  市场状态: {state_name}")
+            
+            if result['metadata'].get('dynamic_weights'):
+                weights = result['metadata']['dynamic_weights']
+                print(f"  动态权重: ", end="")
+                weight_items = [f"{k}={v:.1f}x" for k, v in list(weights.items())[:3]]
+                print(", ".join(weight_items))
+        
         if engine.get('signals'):
             signals = engine['signals']
             print(f"  新闻信号: {signals['news_score']:.0f}/100")
