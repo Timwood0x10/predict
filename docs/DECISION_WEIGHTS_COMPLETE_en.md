@@ -185,8 +185,24 @@ Final Decision (BUY/SELL/HOLD, comprehensive confidence)
 
 ## ⚙️ Decision Engine Details
 
+### Operating Modes
+
+The Decision Engine supports two operating modes:
+
+#### 1. Live Trading Mode (Default)
+- Complete safety checks and data validation
+- Strict decision thresholds and high consistency requirements
+- Requires complete multi-dimensional data (news, AI predictions, etc.)
+
+#### 2. Backtest Mode (backtest_mode=True)
+- Relaxed data completeness checks (historical data lacks news and AI predictions)
+- Lower decision thresholds to adapt to limited data
+- Increased weight on price and technical indicators
+- Primarily used for historical data backtesting and strategy verification
+
 ### Weight Configuration (DecisionEngine)
 
+#### Live Trading Mode Weights
 ```python
 weights = {
     'news': 0.30,      # News signals 30%
@@ -196,8 +212,19 @@ weights = {
 }
 ```
 
-### Decision Thresholds (Conservative Strategy)
+#### Backtest Mode Weights
+```python
+weights = {
+    'news': 0.10,      # News signals 10% (insufficient data in backtest)
+    'price': 0.50,     # Price signals 50% (primary basis)
+    'sentiment': 0.30, # Sentiment signals 30%
+    'ai': 0.10         # AI signals 10% (insufficient data in backtest)
+}
+```
 
+### Decision Thresholds
+
+#### Live Trading Mode Thresholds (Conservative Strategy)
 ```python
 thresholds = {
     'buy_score': 75,        # Buy score threshold
@@ -206,7 +233,18 @@ thresholds = {
 }
 ```
 
+#### Backtest Mode Thresholds (Relaxed Strategy)
+```python
+thresholds = {
+    'buy_score': 60,        # Buy score threshold (reduced by 15 points)
+    'sell_score': 40,       # Sell score threshold (increased by 15 points)
+    'min_consistency': 0.70 # Minimum consistency requirement (reduced by 10%)
+}
+```
+
 ### Safety Checks (5 items must all pass)
+
+#### Live Trading Mode Safety Checks
 
 1. **Gas Fee Check**
    - ETH Gas < 30 Gwei or BTC Fee < 15 sat/vB
@@ -214,6 +252,25 @@ thresholds = {
 2. **Data Completeness Check**
    - News count ≥ 8
    - AI prediction count > 0
+
+3. **Market State Check**
+   - Fear & Greed Index between 25-75 (avoid extremes)
+
+4. **Volatility Check**
+   - Volatility < 4% (conservative)
+
+5. **Account State Check**
+   - Position count < 3
+   - Balance > 10 USDT
+
+#### Backtest Mode Safety Checks
+
+1. **Gas Fee Check**
+   - ETH Gas < 30 Gwei or BTC Fee < 15 sat/vB
+
+2. **Data Completeness Check** ⚠️ Relaxed
+   - Only requires K-line data
+   - No requirement for news and AI data (not available in historical backtest)
 
 3. **Market State Check**
    - Fear & Greed Index between 25-75 (avoid extremes)
@@ -273,19 +330,38 @@ Base score = 50
 
 ### Decision Logic
 
-#### Buy Conditions (all must be met)
+#### Live Trading Mode Decision Logic
+
+**Buy Conditions (all must be met)**
 - Total score > 75
 - Consistency > 80%
 - Fear & Greed Index < 70
 
-#### Sell Conditions (all must be met)
+**Sell Conditions (all must be met)**
 - Total score < 25
 - Consistency > 80%
 - Fear & Greed Index > 30
 
-#### Hold Conditions (any condition met)
+**Hold Conditions (any condition met)**
 - Score between 25-75
 - Consistency ≤ 80%
+- Market extreme state
+
+#### Backtest Mode Decision Logic
+
+**Buy Conditions (all must be met)** ⚠️ Relaxed
+- Total score > 60 (reduced by 15 points)
+- Consistency > 70% (reduced by 10%)
+- Fear & Greed Index < 70
+
+**Sell Conditions (all must be met)** ⚠️ Relaxed
+- Total score < 40 (increased by 15 points)
+- Consistency > 70% (reduced by 10%)
+- Fear & Greed Index > 30
+
+**Hold Conditions (any condition met)**
+- Score between 40-60
+- Consistency ≤ 70%
 - Market extreme state
 
 ---
@@ -534,20 +610,38 @@ This trading system adopts a **dual-layer decision architecture**, combining **4
 2. **Risk Priority**: Strict safety checks and conservative thresholds
 3. **Dynamic Adaptation**: Automatically adjust weights based on market state
 4. **Scientific Management**: Position and risk management based on mathematical models
+5. **Dual Mode Support**: Adaptive switching between live trading mode and backtest mode
 
 ### Key Data
 - **Total Dimensions**: 47 (original 26 + new 21)
 - **Decision Layers**: 2 (AI layer + engine layer)
 - **Trading Strategies**: 5 (trend/mean/breakout/grid/scalping)
 - **Risk Control**: 5 safety checks + dynamic stop loss
+- **Operating Modes**: 2 (live trading/backtest)
 
 ### Expected Performance
+
+#### Live Trading Mode
 - **Accuracy Improvement**: 25-30% (compared to single strategy)
 - **Risk Control**: Maximum drawdown controlled at 1.5%
 - **Adaptability**: Support for bull, bear, ranging and other market states
+- **Data Requirements**: Complete multi-dimensional data (news, AI predictions, etc.)
+
+#### Backtest Mode
+- **Use Case**: Historical data backtesting, strategy verification
+- **Data Requirements**: Only requires K-line data and basic technical indicators
+- **Weight Adjustment**: 50% price weight, reduced weight on other dimensions
+- **Threshold Adjustment**: Buy at 60 points, sell at 40 points (relaxed standards)
+
+### Usage Recommendations
+
+1. **Live Trading**: Use default mode, ensure all data sources are complete
+2. **Strategy Backtesting**: Enable `backtest_mode=True`, adapt to historical data limitations
+3. **Parameter Tuning**: Fine-tune weights and thresholds based on actual performance
+4. **Risk Management**: Strictly follow stop-loss and take-profit rules
 
 ---
 
-*Document Generation Time: 2025-10-31*  
-*System Version: v2.0 (Enhanced)*  
+*Document Generation Time: 2025-11-01*  
+*System Version: v2.1 (Enhanced + Backtest Support)*  
 *Total Feature Dimensions: 47*

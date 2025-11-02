@@ -8,30 +8,30 @@
    - Phase2技术分析: 12维 (MACD+RSI+BB+多周期+支撑阻力)
 
 【💰 价格信息】
-当前价格: $3,862.61
-价格变化: +0.90% (📈)
-波动率: 0.0036
-最近支撑: $3,840.37 (距离 0.58%)
-最近阻力: $3,873.68 (距离 0.29%)
+当前价格: $3,867.79
+价格变化: -0.06% (📉)
+波动率: 0.0024
+最近支撑: $3,862.92 (距离 0.13%)
+最近阻力: $3,869.55 (距离 0.05%)
 
 【📈 技术指标】
-MACD: 3.25 (信号线: 2.32, 柱: 0.94)
-      状态: 看多 🟢
-RSI(14): 53.1 - 中性 ⚪ 中性
-布林带位置: 0.65 (中轨区域) ➡️
+MACD: 4.15 (信号线: 6.10, 柱: -1.95)
+      状态: 看空 🔴
+RSI(14): 49.3 - 中性 ⚪ 中性
+布林带位置: 0.33 (中轨区域) ➡️
 EMA趋势: 死叉/空头 📉
 
 【⏱️ 多周期趋势分析】
-1分钟   : 下跌 📉 (RSI:44)
-15分钟  : 上涨 📈 (RSI:57)
-1小时   : 上涨 📈 (RSI:53)
-4小时   : 震荡 ➡️ (RSI:45)
+1分钟   : 下跌 📉 (RSI:50)
+15分钟  : 下跌 📉 (RSI:43)
+1小时   : 下跌 📉 (RSI:49)
+4小时   : 震荡 ➡️ (RSI:46)
 
-趋势一致性: 50% (主流方向: 上涨)
+趋势一致性: 75% (主流方向: 下跌)
 
 【😊 市场情绪】
-恐惧贪婪指数: 33/100 (恐惧)
-新闻情绪: 看涨 (共49条)
+恐惧贪婪指数: 37/100 (恐惧)
+新闻情绪: 中性 (共50条)
 市场情绪: 看跌
 
 【⛽ Gas费用】
@@ -39,34 +39,34 @@ ETH Gas: 0.08 Gwei ❌
 BTC Fee: 1 sat/vB ✅
 
 【🔢 完整特征向量】
-[ 0] eth_gas_gwei             :     0.0790
+[ 0] eth_gas_gwei             :     0.0802
 [ 1] btc_fee_sat              :          1
 [ 2] eth_tradeable            :          0
 [ 3] btc_tradeable            :          1
-[ 4] current_price            :  3862.6100
-[ 5] price_change_pct         :     0.8999
-[ 6] avg_volume               :  8918.6294
-[ 7] volatility               :     0.0036
+[ 4] current_price            :  3867.7900
+[ 5] price_change_pct         :    -0.0649
+[ 6] avg_volume               :  6965.0354
+[ 7] volatility               :     0.0024
 [ 8] trend                    :          0
-[ 9] high_price               :  3906.0900
-[10] low_price                :  3804.7400
-[11] price_range_pct          :     2.6638
-[12] news_score               :    33.3333
-[13] news_pos_ratio           :     0.2857
-[14] news_neg_ratio           :     0.1429
-[15] news_count               :         49
-[16] news_sentiment           :          1
-[17] market_sentiment_score   :   -34.0000
-[18] market_confidence        :    34.0000
-[19] fear_greed_index         :    33.0000
+[ 9] high_price               :  3909.3900
+[10] low_price                :  3858.1100
+[11] price_range_pct          :     1.3291
+[12] news_score               :    18.1818
+[13] news_pos_ratio           :     0.2600
+[14] news_neg_ratio           :     0.1800
+[15] news_count               :         50
+[16] news_sentiment           :          0
+[17] market_sentiment_score   :   -26.0000
+[18] market_confidence        :    26.0000
+[19] fear_greed_index         :    37.0000
 [20] market_sentiment_label   :         -1
-[21] ai_avg_confidence        :    82.5922
+[21] ai_avg_confidence        :    88.3333
 [22] ai_up_count              :          0
 [23] ai_down_count            :          3
 [24] ai_agreement_ratio       :     1.0000
 [25] ai_consensus             :         -1
-[26] orderbook_imbalance      :    -0.9227
-[27] support_strength         :         70
+[26] orderbook_imbalance      :    -0.7894
+[27] support_strength         :    50.0000
 [28] resistance_strength      :    70.0000
 [29] dxy_change               :     0.2713
 [30] sp500_change             :     0.2618
@@ -74,17 +74,17 @@ BTC Fee: 1 sat/vB ✅
 [32] risk_appetite            :    73.8700
 [33] oi_change                :          0
 [34] funding_trend            :          0
-[35] macd_line                :     3.2522
-[36] macd_signal              :     2.3158
-[37] macd_hist                :     0.9364
-[38] rsi                      :    53.0795
-[39] bb_position              :     0.6544
+[35] macd_line                :     4.1471
+[36] macd_signal              :     6.0958
+[37] macd_hist                :    -1.9486
+[38] rsi                      :    49.2666
+[39] bb_position              :     0.3336
 [40] ema_trend                :         -1
 [41] trend_1m                 :         -1
-[42] trend_15m                :          1
-[43] trend_1h                 :          1
+[42] trend_15m                :         -1
+[43] trend_1h                 :         -1
 [44] trend_4h                 :          0
-[45] support_distance         :     0.5800
-[46] resistance_distance      :     0.2900
+[45] support_distance         :     0.1300
+[46] resistance_distance      :     0.0500
 
 ================================================================================
